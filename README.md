@@ -142,9 +142,23 @@ Projects using the legacy engine can be migrated to engine based projects by rem
 ## Project migration in team context
 Before migrating the project created in team context, ensure that the team already exists in the target workspace.
 
+## Essential guidelines for retrying a successful/failed migration
+The utility has been meticulously designed to resume the export/import operation from the exact point where it left off in the event of failures.
+### Project files
+The utility employs rsync to facilitate the migration of project files. When the export/import command is rerun, it will synchronize the project files from the source to the destination.
+
+### Project settings/artifacts
+During a rerun, the project settings/artifacts (model/job/application) that have already been migrated will not be updated. Instead, only the missing artifacts in the target workspace will be migrated. This behavior aligns with the resume operation support in case of failures.
+The utility is not designed to support a sync operation between the source and target projects. If you wish to update the project that has already been migrated, it is advisable to delete the project in the target workspace and then rerun the migration.
+
 ## Batch Migration
 
 A sample script has been included in the [examples directory](examples) for batch migration. This script utilizes Python multithreading and reads the project list from the export/import-config.ini file.
+
+## Post migration guidelines
+
+* After the migration, the user's public SSH key will be reset. Please remember to update the SSH key in all external locations, such as the Git repository.
+* After the migration, the Model API key will be reset. Kindly ensure that you update all applications that utilize these APIs.
 
 ## Reporting bugs and vulnerabilities
 

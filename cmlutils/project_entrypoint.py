@@ -213,8 +213,8 @@ def project_import_cmd(project_name):
             logging.info("Creating project to migrate files and metadata.")
             project_id = p.create_project_v2(proj_metadata=project_metadata)
         else:
-            logging.info(
-                "Project already exist in the target workspace: %s",
+            logging.warning(
+                "Project %s already exist in the target workspace. Retrying the import won't update existing project settings or artifacts. Only missing artifacts will be migrated, However the project files will be synced via rsync.",
                 project_metadata["name"],
             )
         if "team_name" in project_metadata:
