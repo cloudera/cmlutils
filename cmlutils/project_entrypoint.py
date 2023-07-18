@@ -215,7 +215,7 @@ def project_import_cmd(project_name):
         else:
             logging.warning(
                 "Project %s already exist in the target workspace. Retrying the import won't update existing project settings or artifacts. Only missing artifacts will be migrated, However the project files will be synced via rsync.",
-                project_metadata["name"],
+                project_metadata.get("name", ""),
             )
         if "team_name" in project_metadata:
             username=project_metadata["team_name"]
