@@ -5,8 +5,8 @@ from configparser import ConfigParser, NoOptionError
 from logging.handlers import RotatingFileHandler
 
 import click
-from cmlutils import constants
 
+from cmlutils import constants
 from cmlutils.constants import (
     API_V1_KEY,
     CA_PATH_KEY,
@@ -17,7 +17,7 @@ from cmlutils.constants import (
 from cmlutils.directory_utils import get_project_metadata_file_path
 from cmlutils.projects import ProjectExporter, ProjectImporter
 from cmlutils.script_models import ValidationResponseStatus
-from cmlutils.utils import read_json_file
+from cmlutils.utils import get_absolute_path, read_json_file
 from cmlutils.validator import (
     initialize_export_validators,
     initialize_import_validators,
@@ -85,8 +85,8 @@ def project_export_cmd(project_name):
     output_dir = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
 
-    output_dir = os.path.expanduser("~") + output_dir
-    ca_path = os.path.expanduser("~") + ca_path
+    output_dir = get_absolute_path(output_dir)
+    ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(output_dir, project_name, "logs")
     _configure_project_command_logging(log_filedir)
@@ -136,7 +136,7 @@ def project_export_cmd(project_name):
             top_level_dir=output_dir,
             ca_path=ca_path,
             project_slug=project_slug,
-            owner_type= owner_type,
+            owner_type=owner_type,
         )
         p.transfer_project_files()
         p.dump_project_and_related_metadata()
@@ -164,8 +164,8 @@ def project_import_cmd(project_name):
     local_directory = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
 
-    local_directory = os.path.expanduser("~") + local_directory
-    ca_path = os.path.expanduser("~") + ca_path
+    local_directory = get_absolute_path(local_directory)
+    ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(local_directory, project_name, "logs")
     _configure_project_command_logging(log_filedir)
@@ -218,7 +218,7 @@ def project_import_cmd(project_name):
                 project_metadata.get("name", ""),
             )
         if "team_name" in project_metadata:
-            username=project_metadata["team_name"]
+            username = project_metadata["team_name"]
         creator_username, project_slug = p.get_creator_username()
         p = ProjectImporter(
             host=url,

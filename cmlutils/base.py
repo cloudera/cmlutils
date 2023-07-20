@@ -1,6 +1,6 @@
 import os
-from datetime import datetime, timedelta
 import shutil
+from datetime import datetime, timedelta
 from string import Template
 
 from cmlutils.constants import ApiV1Endpoints
@@ -50,10 +50,8 @@ class BaseWorkspaceInteractor(object):
         response_dict = response.json()
         _apiv2_key = response_dict["apiKey"]
         return _apiv2_key
-    
+
     def remove_cdswctl_dir(self, file_path: str):
         if os.path.exists(file_path):
             dirname = os.path.dirname(file_path)
             shutil.rmtree(dirname, ignore_errors=True)
-
-

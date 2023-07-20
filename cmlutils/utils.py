@@ -214,3 +214,9 @@ def find_runtime(runtime_list, runtime_id: int):
                 "runtime_shortversion": runtime["shortVersion"],
             }
     return None
+
+
+def get_absolute_path(path: str) -> str:
+    if path.startswith("~"):
+        return path.replace("~", os.path.expanduser("~"), 1)
+    return os.path.abspath(path=path)

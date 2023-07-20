@@ -256,9 +256,17 @@ class ProjectExporter(BaseWorkspaceInteractor):
             for project in project_list:
                 if project["name"] == self.project_name:
                     if project["owner"]["type"] == constants.ORGANIZATION_TYPE:
-                        return project["owner"]["username"], project["slug_raw"], constants.ORGANIZATION_TYPE
+                        return (
+                            project["owner"]["username"],
+                            project["slug_raw"],
+                            constants.ORGANIZATION_TYPE,
+                        )
                     else:
-                        return project["creator"]["username"], project["slug_raw"], constants.USER_TYPE
+                        return (
+                            project["creator"]["username"],
+                            project["slug_raw"],
+                            constants.USER_TYPE,
+                        )
         return None, None, None
 
     # Get all models list info using API v1
@@ -449,11 +457,15 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
         project_metadata["template"] = "blank"
         project_metadata["environment"] = project_env
-        
-        #Create project in team context
+
+        # Create project in team context
         if self.owner_type == constants.ORGANIZATION_TYPE:
             project_metadata["team_name"] = self.username
-            logging.warning("Project %s belongs to team %s. Ensure that the team already exists in the target workspace prior to executing the import command.", self.project_name, self.username)
+            logging.warning(
+                "Project %s belongs to team %s. Ensure that the team already exists in the target workspace prior to executing the import command.",
+                self.project_name,
+                self.username,
+            )
         self.project_id = project_info_resp["id"]
         write_json_file(file_path=filepath, json_data=project_metadata)
 
@@ -861,13 +873,11 @@ class ProjectImporter(BaseWorkspaceInteractor):
             ca_path=self.ca_path,
         )
         return response.json()
-    
-    #Get spark runtime addons using API v2
+
+    # Get spark runtime addons using API v2
     def get_spark_runtimeaddons(self):
-        search_option={"identifier": constants.SPARK_ADDON, "status": "AVAILABLE"}
-        encoded_option = urllib.parse.quote(
-                json.dumps(search_option).replace('"', '"')
-        )
+        search_option = {"identifier": constants.SPARK_ADDON, "status": "AVAILABLE"}
+        encoded_option = urllib.parse.quote(json.dumps(search_option).replace('"', '"'))
         endpoint = Template(ApiV2Endpoints.RUNTIME_ADDONS.value).substitute(
             search_option=encoded_option
         )
@@ -1165,7 +1175,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
                         job_metadata["project_id"] = project_id
                         job_metadata["paused"] = True
                         if spark_runtime_id != None:
-                            job_metadata["runtime_addon_identifiers"] = [spark_runtime_id]
+                            job_metadata["runtime_addon_identifiers"] = [
+                                spark_runtime_id
+                            ]
                         if (
                             not "runtime_identifier" in job_metadata
                             and proj_with_runtime

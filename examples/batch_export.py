@@ -2,10 +2,10 @@
 # Author: Cloudera
 # Description: An example script to perform batch export of projects.
 
-from multiprocessing.pool import ThreadPool
+import os
 import subprocess
 from configparser import ConfigParser
-import os
+from multiprocessing.pool import ThreadPool
 
 # This variable controls the number of threads that can run simultaneously.
 BATCH_SIZE = 10
@@ -30,17 +30,20 @@ def _get_project_list(file_path: str):
 
 
 def main():
-    project_names = _get_project_list(os.path.expanduser("~") + "/.cmlutils/export-config.ini")
+    project_names = _get_project_list(
+        os.path.expanduser("~") + "/.cmlutils/export-config.ini"
+    )
     print(project_names)
     project_iter = []
     for project in project_names:
         element = [project]
         project_iter.append(element)
-    
+
     # create a thread pool
     with ThreadPool(BATCH_SIZE) as pool:
         # call a function on each item in a list
         pool.starmap(export_project, project_iter)
+
 
 if __name__ == "__main__":
     main()
