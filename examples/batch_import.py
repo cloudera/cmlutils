@@ -3,6 +3,7 @@
 # Description: An example script to perform batch import of projects.
 
 import os
+import shlex
 import subprocess
 from configparser import ConfigParser
 from multiprocessing.pool import ThreadPool
@@ -13,7 +14,9 @@ BATCH_SIZE = 10
 
 # import a single project using cmlutility.
 def import_project(project_name: str):
-    import_command = f"yes | cmlutil project import -p  {project_name}"
+    import_command = "yes | cmlutil project import -p  {}".format(
+        shlex.quote(project_name)
+    )
     subprocess.run(import_command, shell=True)
 
 

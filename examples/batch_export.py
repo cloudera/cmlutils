@@ -3,6 +3,7 @@
 # Description: An example script to perform batch export of projects.
 
 import os
+import shlex
 import subprocess
 from configparser import ConfigParser
 from multiprocessing.pool import ThreadPool
@@ -13,7 +14,9 @@ BATCH_SIZE = 10
 
 # Export a single project using cmlutility.
 def export_project(project_name: str):
-    export_command = f"yes | cmlutil project export -p  {project_name}"
+    export_command = "yes | cmlutil project export -p  {}".format(
+        shlex.quote(project_name)
+    )
     subprocess.run(export_command, shell=True)
 
 
