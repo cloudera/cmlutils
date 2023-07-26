@@ -75,6 +75,7 @@ def project_cmd():
     required=True,
 )
 def project_export_cmd(project_name):
+    pexport = None
     config = _read_config_file(
         os.path.expanduser("~") + "/.cmlutils/export-config.ini", project_name
     )
@@ -105,8 +106,8 @@ def project_export_cmd(project_name):
         )
         creator_username, project_slug, owner_type = pobj.get_creator_username()
         if creator_username is None:
-            logging.error("Validation error: %s", "Cannot determine project creator.")
-            raise RuntimeError("validation error", "Cannot determine project creator.")
+            logging.error("Validation error: Cannot find project - %s under username %s", project_name, username)
+            raise RuntimeError("Validation error")
         logging.info("Begin validating for export.")
         validators = initialize_export_validators(
             host=url,
@@ -128,7 +129,7 @@ def project_export_cmd(project_name):
                 )
         logging.info("Finished validating export validations.")
         logging.info("File transfer for project and project metadata has started.")
-        p = ProjectExporter(
+        pexport = ProjectExporter(
             host=url,
             username=creator_username,
             project_name=project_name,
@@ -138,11 +139,12 @@ def project_export_cmd(project_name):
             project_slug=project_slug,
             owner_type=owner_type,
         )
-        p.transfer_project_files()
-        p.dump_project_and_related_metadata()
+        pexport.transfer_project_files()
+        pexport.dump_project_and_related_metadata()
     except:
         logging.error("Exception:", exc_info=1)
-        p.terminate_ssh_session()
+        if pexport:
+            pexport.terminate_ssh_session()
         exit()
 
 
@@ -154,6 +156,7 @@ def project_export_cmd(project_name):
     required=True,
 )
 def project_import_cmd(project_name):
+    pimport = None
     config = _read_config_file(
         os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name
     )
@@ -220,7 +223,7 @@ def project_import_cmd(project_name):
         if "team_name" in project_metadata:
             username = project_metadata["team_name"]
         creator_username, project_slug = p.get_creator_username()
-        p = ProjectImporter(
+        pimport = ProjectImporter(
             host=url,
             username=username,
             project_name=project_name,
@@ -229,15 +232,16 @@ def project_import_cmd(project_name):
             ca_path=ca_path,
             project_slug=project_slug,
         )
-        p.transfer_project()
-        p.terminate_ssh_session()
+        pimport.transfer_project()
+        pimport.terminate_ssh_session()
 
         if uses_engine:
             proj_patch_metadata = {"default_project_engine_type": "legacy_engine"}
-            p.convert_project_to_engine_based(proj_patch_metadata=proj_patch_metadata)
+            pimport.convert_project_to_engine_based(proj_patch_metadata=proj_patch_metadata)
 
-        p.import_metadata(project_id=project_id)
+        pimport.import_metadata(project_id=project_id)
     except:
         logging.error("Exception:", exc_info=1)
-        p.terminate_ssh_session()
+        if pimport:
+            pimport.terminate_ssh_session()
         exit()
