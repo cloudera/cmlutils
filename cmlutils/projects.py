@@ -687,7 +687,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
             retry_limit=3,
         )
         self.remove_cdswctl_dir(cdswctl_path)
-        self.terminate_ssh_session()
 
     def terminate_ssh_session(self):
         logging.info("Terminating ssh connection.")
