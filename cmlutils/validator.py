@@ -61,7 +61,7 @@ class DirectoriesAndFilesValidator(ImportValidators):
             )
         return ValidationResponse(
             validation_name=self.validation_name,
-            validation_msg="Expected files and directories present for the project",
+            validation_msg="Expected files and directories present",
             validation_status=ValidationResponseStatus.PASSED,
         )
 
@@ -100,21 +100,25 @@ class UserNameImportValidator(ImportValidators):
                 logging.error("Username does not exist %s", e.response.json())
                 return ValidationResponse(
                     validation_name=self.validation_name,
-                    validation_msg="The user name does not exist. Ensure that the user name provided is correct.",
+                    validation_msg="The user name does not exist. Ensure that the user name provided for the project {} is correct.".format(
+                        self.project_name
+                    ),
                     validation_status=ValidationResponseStatus.FAILED,
                 )
             elif e.response.status_code == 401:
                 logging.error("Unauthorized for url %s", e.response.json())
                 return ValidationResponse(
                     validation_name=self.validation_name,
-                    validation_msg="The user is unauthorised. Ensure that the API key is correct",
+                    validation_msg="The user is unauthorised. Ensure that the API key for the project {} is correct".format(
+                        self.project_name
+                    ),
                     validation_status=ValidationResponseStatus.FAILED,
                 )
             else:
                 logging.error(e.response.json())
                 return ValidationResponse(
                     validation_name=self.validation_name,
-                    validation_msg="Exception occurred while validating username.",
+                    validation_msg="Exception occurred while validating username",
                     validation_status=ValidationResponseStatus.FAILED,
                 )
 
@@ -188,21 +192,25 @@ class UsernameValidator(ExportValidators):
                 logging.error("Username does not exist %s", e.response.json())
                 return ValidationResponse(
                     validation_name=self.validation_name,
-                    validation_msg="The user name does not exist. Ensure that the user name provided is correct.",
+                    validation_msg="The user name does not exist. Ensure that the user name provided for the project {} is correct.".format(
+                        self.project_name
+                    ),
                     validation_status=ValidationResponseStatus.FAILED,
                 )
             elif e.response.status_code == 401:
                 logging.error("Unauthorized for url %s", e.response.json())
                 return ValidationResponse(
                     validation_name=self.validation_name,
-                    validation_msg="The user is unauthorised. Ensure that the API key is correct",
+                    validation_msg="The user is unauthorised. Ensure that the API key for the project {} is correct ".format(
+                        self.project_name
+                    ),
                     validation_status=ValidationResponseStatus.FAILED,
                 )
             else:
                 logging.error(e.response.json())
                 return ValidationResponse(
                     validation_name=self.validation_name,
-                    validation_msg="Exception occurred while validating username.",
+                    validation_msg="Exception occurred while validating username",
                     validation_status=ValidationResponseStatus.FAILED,
                 )
 
@@ -217,8 +225,8 @@ class ProjectBelongsToUserValidator(ExportValidators):
         ca_path: str,
         project_slug: str,
     ):
-        self.validation_name = "Validate if the project belongs to user {}".format(
-            username
+        self.validation_name = "Validate if the project {} belongs to user {}".format(
+            project_name, username
         )
         self.validation_name = "Check if user is present"
         self.host = host
@@ -249,7 +257,9 @@ class ProjectBelongsToUserValidator(ExportValidators):
             logging.error("Project does not exist")
             return ValidationResponse(
                 validation_name=self.validation_name,
-                validation_msg="Project does not exist. Ensure that the project name provided is correct.",
+                validation_msg="Project - {} does not exist. Ensure that the project name provided is correct.".format(
+                    self.project_name
+                ),
                 validation_status=ValidationResponseStatus.FAILED,
             )
 
@@ -313,12 +323,16 @@ class RsyncRuntimeAddonExistsExportValidator(ExportValidators):
         else:
             return ValidationResponse(
                 validation_name=self.validation_name,
-                validation_msg="Project is not configured with runtime",
+                validation_msg="Project {} is not configured with runtime".format(
+                    self.project_name
+                ),
                 validation_status=ValidationResponseStatus.SKIPPED,
             )
         return ValidationResponse(
             validation_name=self.validation_name,
-            validation_msg="Rsync enabled runtime is not added",
+            validation_msg="Rsync enabled runtime is not added in the project {}.".format(
+                self.project_name
+            ),
             validation_status=ValidationResponseStatus.FAILED,
         )
 
