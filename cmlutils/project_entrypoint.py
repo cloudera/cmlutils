@@ -106,7 +106,11 @@ def project_export_cmd(project_name):
         )
         creator_username, project_slug, owner_type = pobj.get_creator_username()
         if creator_username is None:
-            logging.error("Validation error: Cannot find project - %s under username %s", project_name, username)
+            logging.error(
+                "Validation error: Cannot find project - %s under username %s",
+                project_name,
+                username,
+            )
             raise RuntimeError("Validation error")
         logging.info("Begin validating for export.")
         validators = initialize_export_validators(
@@ -237,7 +241,9 @@ def project_import_cmd(project_name):
 
         if uses_engine:
             proj_patch_metadata = {"default_project_engine_type": "legacy_engine"}
-            pimport.convert_project_to_engine_based(proj_patch_metadata=proj_patch_metadata)
+            pimport.convert_project_to_engine_based(
+                proj_patch_metadata=proj_patch_metadata
+            )
 
         pimport.import_metadata(project_id=project_id)
     except:

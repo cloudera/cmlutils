@@ -103,10 +103,11 @@ def get_ignore_files(
                 "ssh",
                 "-p",
                 str(ssh_port),
+                "-oStrictHostKeyChecking=no",
                 constants.CDSW_ROOT_USER,
                 f"echo -e '{entries_content}' > {constants.FILE_NAME}",
             ]
-            subprocess.Popen(create_command).wait()
+            subprocess.run(create_command)
             entries_content = entries_content + "\n" + constants.FILE_NAME
             with open(
                 os.path.join(top_level_dir, project_name, constants.IGNORE_FILE_PATH),
