@@ -72,7 +72,9 @@ def get_ignore_files(
     )
     try:
         logging.info(
-            "The files included in %s will not be migrated", constants.FILE_NAME
+            "The files included in %s will not be migrated for the project %s",
+            constants.FILE_NAME,
+            project_name,
         )
         response = call_api_v1(
             host=host, endpoint=endpoint, method="GET", api_key=api_key, ca_path=ca_path
@@ -92,11 +94,13 @@ def get_ignore_files(
     except HTTPError as e:
         if e.response.status_code == 404:
             logging.warning(
-                "Export ignore file does not exist. Hence, all files will be migrated except .cache and .local."
+                "Export ignore file does not exist. Hence, all files of the project %s will be migrated except .cache and .local.",
+                project_name,
             )
             logging.info(
-                "A default %s is being created with default entries .cache and .local since, it does not exist",
+                "A default %s has been created in the project %s with default entries .cache and .local since, it does not exist.",
                 constants.FILE_NAME,
+                project_name,
             )
             entries_content = "\n".join(constants.DEFAULT_ENTRIES)
             create_command = [
@@ -150,6 +154,7 @@ def transfer_project_files(
     source: str,
     destination: str,
     retry_limit: int,
+    project_name: str,
     exclude_file_path: str = None,
 ):
     logging.info("Transfering files over ssh from sshport %s", sshport)
@@ -176,7 +181,9 @@ def transfer_project_files(
             return
         logging.warning("Got non zero return code. Retrying...")
     if return_code != 0:
-        logging.error("Retries exhausted for rsync.. Failing script")
+        logging.error(
+            "Retries exhausted for rsync.. Failing script for project %s", project_name
+        )
         raise RuntimeError("Retries exhausted for rsync.. Failing script")
 
 
@@ -191,7 +198,9 @@ def test_file_size(sshport: int, output_dir: str, exclude_file_path: str = None)
     s = os.statvfs(output_dir)
     localdir_size = (s.f_bavail * s.f_frsize) / 1024
     if float(file_size) > float(localdir_size):
-        logging.error("Not enough disk space to download the tar file.")
+        logging.error(
+            "Insufficient disk storage to download project files for the project."
+        )
         raise RuntimeError
 
 
@@ -435,6 +444,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             source=constants.CDSW_PROJECTS_ROOT_DIR,
             destination=project_data_dir,
             retry_limit=3,
+            project_name=self.project_name,
             exclude_file_path=exclude_file_path,
         )
         self.remove_cdswctl_dir(cdswctl_path)
@@ -561,7 +571,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         filepath = get_jobs_metadata_file_path(
             top_level_dir=self.top_level_dir, project_name=self.project_name
         )
-        logging.info("Exporting job metadata to path %s", filepath)
+        logging.info("Exporting job metadata to path %s ", filepath)
         job_list = self.get_jobs_listv1()
         if len(job_list) == 0:
             logging.info("Jobs are not present in the project %s.", self.project_name)

@@ -24,7 +24,7 @@ from cmlutils.validator import (
 )
 
 
-def _configure_project_command_logging(log_filedir: str):
+def _configure_project_command_logging(log_filedir: str, project_name: str):
     os.makedirs(name=log_filedir, exist_ok=True)
     log_filename = log_filedir + constants.LOG_FILE
     logging.basicConfig(
@@ -35,9 +35,17 @@ def _configure_project_command_logging(log_filedir: str):
             ),
         ],
         level=logging.INFO,
-        format="%(asctime)s - %(levelname)s - %(message)s",
+        format="%(asctime)s - %(levelname)s - %(custom_attribute)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
     )
+    old_factory = logging.getLogRecordFactory()
+
+    def record_factory(*args, **kwargs):
+        record = old_factory(*args, **kwargs)
+        record.custom_attribute = project_name
+        return record
+
+    logging.setLogRecordFactory(record_factory)
 
 
 def _read_config_file(file_path: str, project_name: str):
@@ -90,7 +98,7 @@ def project_export_cmd(project_name):
     ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(output_dir, project_name, "logs")
-    _configure_project_command_logging(log_filedir)
+    _configure_project_command_logging(log_filedir, project_name)
     logging.info("Started exporting project: %s", project_name)
     try:
         # Get username of the creator of project - This is required so that admins can also migrate the project
@@ -126,13 +134,17 @@ def project_export_cmd(project_name):
             validation_response = v.validate()
             if validation_response.validation_status == ValidationResponseStatus.FAILED:
                 logging.error(
-                    "Validation error: %s", validation_response.validation_msg
+                    "Validation error: %s",
+                    project_name,
+                    validation_response.validation_msg,
                 )
                 raise RuntimeError(
                     "validation error", validation_response.validation_msg
                 )
-        logging.info("Finished validating export validations.")
-        logging.info("File transfer for project and project metadata has started.")
+        logging.info(
+            "Finished validating export validations for project %s.", project_name
+        )
+        logging.info("File transfer has started.")
         pexport = ProjectExporter(
             host=url,
             username=creator_username,
@@ -175,7 +187,7 @@ def project_import_cmd(project_name):
     ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(local_directory, project_name, "logs")
-    _configure_project_command_logging(log_filedir)
+    _configure_project_command_logging(log_filedir, project_name)
     p = ProjectImporter(
         host=url,
         username=username,
@@ -200,11 +212,16 @@ def project_import_cmd(project_name):
             validation_response = v.validate()
             if validation_response.validation_status == ValidationResponseStatus.FAILED:
                 logging.error(
-                    "Validation error: %s", validation_response.validation_msg
+                    "Validation error for project %s: %s",
+                    project_name,
+                    validation_response.validation_msg,
                 )
                 raise RuntimeError(
                     "validation error", validation_response.validation_msg
                 )
+        logging.info(
+            "Finished validating import validations for project %s.", project_name
+        )
         project_filepath = get_project_metadata_file_path(
             top_level_dir=local_directory, project_name=project_name
         )
@@ -217,7 +234,9 @@ def project_import_cmd(project_name):
 
         project_id = p.check_project_exist(project_metadata["name"])
         if project_id == None:
-            logging.info("Creating project to migrate files and metadata.")
+            logging.info(
+                "Creating project %s to migrate files and metadata.", project_name
+            )
             project_id = p.create_project_v2(proj_metadata=project_metadata)
         else:
             logging.warning(
