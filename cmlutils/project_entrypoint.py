@@ -27,7 +27,6 @@ from cmlutils.validator import (
 def _configure_project_command_logging(log_filedir: str, project_name: str):
     os.makedirs(name=log_filedir, exist_ok=True)
     log_filename = log_filedir + constants.LOG_FILE
-    # extra = {'app_name': project_name}
     logging.basicConfig(
         handlers=[
             logging.StreamHandler(sys.stdout),
