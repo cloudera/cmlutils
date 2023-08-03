@@ -220,3 +220,44 @@ def get_absolute_path(path: str) -> str:
     if path.startswith("~"):
         return path.replace("~", os.path.expanduser("~"), 1)
     return os.path.abspath(path=path)
+
+def parse_runtimes_v2(runtimes):
+    legacy_runtime_image_map  = _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard")
+    return legacy_runtime_image_map
+
+
+def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
+    legacy_runtime_image_map = {}
+    legacy_runtime_kernel_map = {}
+    for image_details in runtimes:
+        if image_details["editor"] == editor and image_details["edition"] == edition:
+            if "Python" in image_details["kernel"]:
+                if "python3" not in legacy_runtime_image_map:
+                    legacy_runtime_kernel_map["python3"] = image_details["kernel"]
+                    legacy_runtime_image_map["python3"] = image_details["image_identifier"]
+                    legacy_runtime_image_map["python2"] = image_details["image_identifier"]
+                else:
+                    if image_details["kernel"] > legacy_runtime_kernel_map["python3"]:
+                        legacy_runtime_kernel_map["python3"] = image_details["kernel"]
+                        legacy_runtime_image_map["python3"] = image_details["image_identifier"]
+                        legacy_runtime_image_map["python2"] = image_details["image_identifier"]
+
+            if "R" in image_details["kernel"]:
+                if "r" not in legacy_runtime_image_map:
+                    legacy_runtime_kernel_map["r"] = image_details["kernel"]
+                    legacy_runtime_image_map["r"] = image_details["image_identifier"]
+                else:
+                    if image_details["kernel"] > legacy_runtime_kernel_map["r"]:
+                        legacy_runtime_kernel_map["r"] = image_details["kernel"]
+                        legacy_runtime_image_map["r"] = image_details["image_identifier"]
+
+            if "Scala" in image_details["kernel"]:
+                if "scala" not in legacy_runtime_image_map:
+                    legacy_runtime_kernel_map["scala"] = image_details["kernel"]
+                    legacy_runtime_image_map["scala"] = image_details["image_identifier"]
+                else:
+                    if image_details["kernel"] > legacy_runtime_kernel_map["scala"]:
+                        legacy_runtime_kernel_map["scala"] = image_details["kernel"]
+                        legacy_runtime_image_map["scala"] = image_details["image_identifier"]
+
+    return legacy_runtime_image_map

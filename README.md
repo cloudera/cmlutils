@@ -134,10 +134,19 @@ The legacy engine is transitioned to an ML runtime based on the table below.
 | r | ml-runtime-workbench-r4.1-standard:2023.05.2-b7 |
 | scala | ml-runtime-workbench-scala2.11-standard:2023.05.2-b7 |
 
-The mapping can be found in the `cmlutils/constants.py` file, and if you want to make changes to it, you can either modify the constants.py file directly or modify the `runtime_identifier` entry in the metadata files generated after using the export command.
+The mapping can be found in the `cmlutils/legacy_engine_runtime_constants.py` file, and if you want to make changes to it, you can either modify the constants.py file directly or modify the `runtime_identifier` entry in the metadata files generated after using the export command.
+
+ #### Dynamic Population of Legacy engine runtime mapping
+
+The default mapping existing in the `cmlutils/legacy_engine_runtime_constants.py` can be dynamically populated based on the runtimes available in the target (CML) workload. Please use this command on your linux/mac machine:
+
+```
+cmlutil helpers populate_runtimes_v2
+```
 
  ### Legacy engine to engine migration
-Projects using the legacy engine can be migrated to engine based projects by removing the legacy engine to ML runtime mapping in the `cmlutils/constants.py` file. The LEGACY_ENGINE_MAP in constants.py file should be an empty map for this.
+Projects using the legacy engine can be migrated to engine based projects by removing the legacy engine to ML runtime mapping in the `cmlutils/legacy_engine_runtime_constants.py` file. The LEGACY_ENGINE_MAP in legacy_engine_runtime_constants.py file should be an empty map for this.
+
 
 ## Project migration in team context
 Before migrating the project created in team context, ensure that the team already exists in the target workspace.

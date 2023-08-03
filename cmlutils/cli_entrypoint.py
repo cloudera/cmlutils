@@ -1,6 +1,6 @@
 import click
 
-from cmlutils.project_entrypoint import project_cmd
+from cmlutils.project_entrypoint import project_cmd, project_helpers_cmd
 
 
 @click.group()
@@ -11,6 +11,7 @@ def cli():
 
 
 cli.add_command(project_cmd)
+cli.add_command(project_helpers_cmd)
 
 
 def main():

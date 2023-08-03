@@ -12,6 +12,7 @@ from typing import Any
 from requests import HTTPError
 
 from cmlutils import constants
+from cmlutils import legacy_engine_runtime_constants
 from cmlutils.base import BaseWorkspaceInteractor
 from cmlutils.cdswctl import cdswctl_login, obtain_cdswctl
 from cmlutils.constants import ApiV1Endpoints, ApiV2Endpoints
@@ -452,7 +453,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
         if project_info_flatten[
             "default_project_engine_type"
-        ] == constants.LEGACY_ENGINE and not bool(constants.LEGACY_ENGINE_MAP):
+        ] == constants.LEGACY_ENGINE and not bool(legacy_engine_runtime_constants.LEGACY_ENGINE_MAP):
             project_metadata["default_project_engine_type"] = constants.LEGACY_ENGINE
 
         project_metadata["template"] = "blank"
@@ -499,9 +500,9 @@ class ProjectExporter(BaseWorkspaceInteractor):
                     # We are expecting LEGACY_ENGINE_MAP if the user want to migrate from an engine to runtime,
                     # and the mapping should be given in LEGACY_ENGINE_MAP
                     # If the mapping is not given, the workloads will be created with the default engine images.
-                    if bool(constants.LEGACY_ENGINE_MAP):
+                    if bool(legacy_engine_runtime_constants.LEGACY_ENGINE_MAP):
                         if model_info_flatten["latestModelBuild.kernel"] != "":
-                            runtime_identifier = constants.LEGACY_ENGINE_MAP.get(
+                            runtime_identifier = legacy_engine_runtime_constants.LEGACY_ENGINE_MAP.get(
                                 model_info_flatten["latestModelBuild.kernel"],
                                 constants.DEFAULT_RUNTIME,
                             )
@@ -545,8 +546,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
                 # We are expecting LEGACY_ENGINE_MAP if the user want to migrate from an engine to runtime,
                 # and the mapping should be given in LEGACY_ENGINE_MAP
                 # If the mapping is not given, the workloads will be created with the default engine images.
-                if bool(constants.LEGACY_ENGINE_MAP):
-                    runtime_identifier = constants.LEGACY_ENGINE_MAP.get(
+                if bool(legacy_engine_runtime_constants.LEGACY_ENGINE_MAP):
+                    runtime_identifier = legacy_engine_runtime_constants.LEGACY_ENGINE_MAP.get(
                         app_info_flatten["currentDashboard.kernel"],
                         constants.DEFAULT_RUNTIME,
                     )
@@ -589,9 +590,9 @@ class ProjectExporter(BaseWorkspaceInteractor):
                     # We are expecting LEGACY_ENGINE_MAP if the user want to migrate from an engine to runtime,
                     # and the mapping should be given in LEGACY_ENGINE_MAP
                     # If the mapping is not given, the workloads will be created with the default engine images.
-                    if bool(constants.LEGACY_ENGINE_MAP):
+                    if bool(legacy_engine_runtime_constants.LEGACY_ENGINE_MAP):
                         if job_info_flatten["kernel"] != "":
-                            runtime_identifier = constants.LEGACY_ENGINE_MAP.get(
+                            runtime_identifier = legacy_engine_runtime_constants.LEGACY_ENGINE_MAP.get(
                                 job_info_flatten["kernel"],
                                 constants.DEFAULT_RUNTIME,
                             )
@@ -890,6 +891,24 @@ class ProjectImporter(BaseWorkspaceInteractor):
         result_list = response.json()["runtime_addons"]
         if result_list:
             return result_list[0]["identifier"]
+        return None
+
+    def get_all_runtimes_v2(self, page_token = ""):
+        endpoint = Template(ApiV2Endpoints.RUNTIMES.value).substitute(
+            page_size=constants.MAX_API_PAGE_LENGTH,
+            page_token=page_token
+        )
+
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        result_list = response.json()
+        if result_list:
+            return result_list
         return None
 
     def check_project_exist(self, project_name: str) -> str:

@@ -18,7 +18,7 @@ API_V1_KEY = "apiv1_key"
 OUTPUT_DIR_KEY = "output_dir"
 PROJECT_NAME_KEY = "project_name"
 CA_PATH_KEY = "ca_path"
-
+MAX_API_PAGE_LENGTH = 30
 
 class ApiV2Endpoints(Enum):
     PROJECTS = "/api/v2/projects"
@@ -35,6 +35,7 @@ class ApiV2Endpoints(Enum):
     )
     SEARCH_APP = "/api/v2/projects/$project_id/applications?search_filter=$search_option&page_size=1000"
     RUNTIME_ADDONS = "/api/v2/runtimeaddons?search_filter=$search_option"
+    RUNTIMES = "/api/v2/runtimes?page_size=$page_size&page_token=$page_token"
 
 
 class ApiV1Endpoints(Enum):
@@ -109,12 +110,6 @@ JOB_MAP = {
 }
 DEFAULT_RUNTIME = "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-workbench-python3.9-standard:2023.05.2-b7"
 LEGACY_ENGINE = "legacy_engine"
-LEGACY_ENGINE_MAP = {
-    "python3": "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-workbench-python3.9-standard:2023.05.2-b7",
-    "python2": "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-workbench-python3.9-standard:2023.05.2-b7",
-    "r": "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-workbench-r4.1-standard:2023.05.2-b7",
-    "scala": "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-workbench-scala2.11-standard:2023.05.2-b7",
-}
 SPARK_ADDON = "spark320"
 ORGANIZATION_TYPE = "organization"
 USER_TYPE = "user"
