@@ -696,6 +696,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             ),
             destination=constants.CDSW_PROJECTS_ROOT_DIR,
             retry_limit=3,
+            project_name=self.project_name,
         )
         self.remove_cdswctl_dir(cdswctl_path)
 
