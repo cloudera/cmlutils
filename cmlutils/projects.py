@@ -98,9 +98,8 @@ def get_ignore_files(
                 project_name,
             )
             logging.info(
-                "A default %s has been created in the project %s with default entries .cache and .local since, it does not exist.",
+                "Since the %s file was not provided, a default file has been generated to exclude the directories .cache and .local from migration.",
                 constants.FILE_NAME,
-                project_name,
             )
             entries_content = "\n".join(constants.DEFAULT_ENTRIES)
             create_command = [
