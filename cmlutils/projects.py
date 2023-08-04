@@ -98,7 +98,7 @@ def get_ignore_files(
                 project_name,
             )
             logging.info(
-                "A default %s has been created in the project %s with default entries .cache and .local since, it does not exist.",
+                "Created a default %s file in Project %s, including standard entries .cache and .local, as it did not exist.",
                 constants.FILE_NAME,
                 project_name,
             )
