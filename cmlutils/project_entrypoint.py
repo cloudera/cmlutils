@@ -3,6 +3,7 @@ import os
 import sys
 from configparser import ConfigParser, NoOptionError
 from logging.handlers import RotatingFileHandler
+from json import dump
 
 import click
 
@@ -14,10 +15,11 @@ from cmlutils.constants import (
     URL_KEY,
     USERNAME_KEY,
 )
+
 from cmlutils.directory_utils import get_project_metadata_file_path
 from cmlutils.projects import ProjectExporter, ProjectImporter
 from cmlutils.script_models import ValidationResponseStatus
-from cmlutils.utils import get_absolute_path, read_json_file
+from cmlutils.utils import get_absolute_path, read_json_file, parse_runtimes_v2
 from cmlutils.validator import (
     initialize_export_validators,
     initialize_import_validators,
@@ -270,3 +272,73 @@ def project_import_cmd(project_name):
         if pimport:
             pimport.terminate_ssh_session()
         exit()
+
+
+@click.group(name="helpers")
+def project_helpers_cmd():
+    """
+    Sub-entrypoint for helpers command
+    """
+
+
+@project_helpers_cmd.command("populate_runtimes")
+def populate_runtimes():
+    project_name = "DEFAULT"
+    config = _read_config_file(
+        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name)
+
+    username = config[USERNAME_KEY]
+    url = config[URL_KEY]
+    apiv1_key = config[API_V1_KEY]
+    local_directory = config[OUTPUT_DIR_KEY]
+    ca_path = config[CA_PATH_KEY]
+
+    local_directory = get_absolute_path(local_directory)
+    ca_path = get_absolute_path(ca_path)
+
+    log_filedir = os.path.join(local_directory, project_name, "logs")
+    _configure_project_command_logging(log_filedir)
+
+    p = ProjectImporter(
+        host=url,
+        username=username,
+        project_name=project_name,
+        api_key=apiv1_key,
+        top_level_dir=local_directory,
+        ca_path=ca_path,
+        project_slug=project_name,
+    )
+
+    page_token = ""
+
+    response = p.get_all_runtimes_v2(page_token)
+    if not response:
+        logging.info("Get Runtimes API returned empty response")
+        return
+    runtimes = response.get("runtimes", [])
+    page_token = response.get("next_page_token", "")
+
+    while len(page_token) > 0:
+        response = p.get_all_runtimes_v2(page_token)
+        if not response:
+            break
+        runtimes = runtimes + response.get("runtimes", [])
+        page_token = response.get("next_page_token", "")
+
+    if len(runtimes) > 0:
+        legacy_runtime_image_map = parse_runtimes_v2(runtimes)
+    else:
+        logging.error("No runtimes present in the get_runtimes API response")
+        return
+
+    # Tries to create/overwrite the data present in <home-dir>/.cmlutils/legacy_engine_runtime_constants.json
+    # Please make sure utility is having necessary permissions to write/overwrite data
+    try:
+        with open(os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json',
+                  'w') as legacy_engine_runtime_constants:
+            dump(legacy_runtime_image_map, legacy_engine_runtime_constants)
+    except:
+        logging.error(
+            "Please make sure Write Perms are set write/overwrite data."
+            "Encountered Error during write/overwrite data in ",
+            os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json')
