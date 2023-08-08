@@ -15,7 +15,7 @@ def get_packages_from_requierements_file() -> List[str]:
 
 setuptools.setup(
     name="cmlutils",
-    version="0.0.1",
+    version="1.0.0",
     author="Cloudera",
     author_email="Cloudera-support",
     description=(
