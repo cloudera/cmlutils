@@ -3,7 +3,7 @@ import os
 import sys
 from configparser import ConfigParser, NoOptionError
 from logging.handlers import RotatingFileHandler
-from json import dumps
+from json import dump
 
 import click
 
@@ -288,7 +288,7 @@ def populate_runtimes():
 
     response = p.get_all_runtimes_v2(page_token)
     if not response:
-        logging.info("Get Runtimes V2 returned empty response")
+        logging.info("Get Runtimes API returned empty response")
         return
     runtimes = response.get("runtimes", [])
     page_token = response.get("next_page_token", "")
@@ -303,8 +303,17 @@ def populate_runtimes():
     if len(runtimes) > 0:
         legacy_runtime_image_map = parse_runtimes_v2(runtimes)
     else:
-        logging.error("No runtimes in the get_runtimes API response")
+        logging.error("No runtimes present in the get_runtimes API response")
         return
 
-    with open(os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.py', 'w') as legacy_engine_runtime_constants:
-        legacy_engine_runtime_constants.write('%s=%s\n' % ("LEGACY_ENGINE_MAP", legacy_runtime_image_map))
+    # Tries to create/overwrite the data present in <home-dir>/.cmlutils/legacy_engine_runtime_constants.json
+    # Please make sure utility is having necessary permissions to write/overwrite data
+    try:
+        with open(os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json',
+                  'w') as legacy_engine_runtime_constants:
+            dump(legacy_runtime_image_map, legacy_engine_runtime_constants)
+    except:
+        logging.error(
+            "Please make sure Write Perms are set write/overwrite data."
+            "Encountered Error during write/overwrite data in ",
+            os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json')

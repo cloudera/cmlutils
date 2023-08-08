@@ -230,6 +230,9 @@ def parse_runtimes_v2(runtimes):
 def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
     legacy_runtime_image_map = {}
     legacy_runtime_kernel_map = {}
+
+    logging.info("Populating Runtimes data for editor: %s, edition: %s", editor, edition)
+
     for image_details in runtimes:
         if image_details["editor"] == editor and image_details["edition"] == edition:
             if "Python" in image_details["kernel"]:
@@ -260,5 +263,8 @@ def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
                     if image_details["kernel"] > legacy_runtime_kernel_map["scala"]:
                         legacy_runtime_kernel_map["scala"] = image_details["kernel"]
                         legacy_runtime_image_map["scala"] = image_details["image_identifier"]
+
+    # Assigning Default runtime to Python3
+    legacy_runtime_image_map["default"] = legacy_runtime_image_map["python3"]
 
     return legacy_runtime_image_map

@@ -108,7 +108,6 @@ JOB_MAP = {
     "report.success_recipients": "success_recipients",
     "report.timeout_recipients": "timeout_recipients",
 }
-DEFAULT_RUNTIME = "docker.repository.cloudera.com/cloudera/cdsw/ml-runtime-workbench-python3.9-standard:2023.05.2-b7"
 LEGACY_ENGINE = "legacy_engine"
 SPARK_ADDON = "spark320"
 ORGANIZATION_TYPE = "organization"
