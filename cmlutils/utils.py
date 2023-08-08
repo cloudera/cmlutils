@@ -51,7 +51,6 @@ def call_api_v1(
         resp.raise_for_status()  # Raise an exception for 4xx or 5xx errors
         return resp
     except requests.exceptions.RequestException as e:
-        logging.warning(f"Error: {e}")
         if resp != None and "application/json" in resp.headers.get("content-type"):
             logging.error("Error response from API: %s", resp.json())
         raise
