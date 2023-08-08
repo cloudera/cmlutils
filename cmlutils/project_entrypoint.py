@@ -15,6 +15,7 @@ from cmlutils.constants import (
     URL_KEY,
     USERNAME_KEY,
 )
+
 from cmlutils.directory_utils import get_project_metadata_file_path
 from cmlutils.projects import ProjectExporter, ProjectImporter
 from cmlutils.script_models import ValidationResponseStatus
@@ -255,12 +256,11 @@ def project_helpers_cmd():
     """
 
 
-@project_helpers_cmd.command("populate_runtimes_v2")
-def populate_runtimes_v2():
-    project_name = ""
+@project_helpers_cmd.command("populate_runtimes")
+def populate_runtimes():
+    project_name = "DEFAULT"
     config = _read_config_file(
-        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name
-    )
+        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name)
 
     username = config[USERNAME_KEY]
     url = config[URL_KEY]
@@ -270,6 +270,9 @@ def populate_runtimes_v2():
 
     local_directory = get_absolute_path(local_directory)
     ca_path = get_absolute_path(ca_path)
+
+    log_filedir = os.path.join(local_directory, project_name, "logs")
+    _configure_project_command_logging(log_filedir)
 
     p = ProjectImporter(
         host=url,
@@ -301,5 +304,5 @@ def populate_runtimes_v2():
     else:
         return
 
-    with open('legacy_engine_runtime_constants.py', 'w') as legacy_engine_runtime_constants:
+    with open(os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.py', 'w') as legacy_engine_runtime_constants:
         legacy_engine_runtime_constants.write('%s=%s\n' % ("LEGACY_ENGINE_MAP", legacy_runtime_image_map))
