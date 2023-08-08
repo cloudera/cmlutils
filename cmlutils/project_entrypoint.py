@@ -288,6 +288,7 @@ def populate_runtimes():
 
     response = p.get_all_runtimes_v2(page_token)
     if not response:
+        logging.info("Get Runtimes V2 returned empty response")
         return
     runtimes = response.get("runtimes", [])
     page_token = response.get("next_page_token", "")
@@ -302,6 +303,7 @@ def populate_runtimes():
     if len(runtimes) > 0:
         legacy_runtime_image_map = parse_runtimes_v2(runtimes)
     else:
+        logging.error("No runtimes in the get_runtimes API response")
         return
 
     with open(os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.py', 'w') as legacy_engine_runtime_constants:

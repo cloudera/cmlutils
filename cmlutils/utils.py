@@ -221,8 +221,9 @@ def get_absolute_path(path: str) -> str:
         return path.replace("~", os.path.expanduser("~"), 1)
     return os.path.abspath(path=path)
 
+
 def parse_runtimes_v2(runtimes):
-    legacy_runtime_image_map  = _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard")
+    legacy_runtime_image_map = _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard")
     return legacy_runtime_image_map
 
 
