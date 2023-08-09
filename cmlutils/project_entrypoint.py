@@ -312,7 +312,7 @@ def populate_engine_runtimes_mapping():
 
     response = p.get_all_runtimes_v2(page_token)
     if not response:
-        logging.info("Get Runtimes API returned empty response")
+        logging.info("populate_engine_runtimes_mapping: Get Runtimes API returned empty response")
         return
     runtimes = response.get("runtimes", [])
     page_token = response.get("next_page_token", "")
@@ -327,7 +327,7 @@ def populate_engine_runtimes_mapping():
     if len(runtimes) > 0:
         legacy_runtime_image_map = parse_runtimes_v2(runtimes)
     else:
-        logging.error("No runtimes present in the get_runtimes API response")
+        logging.error("populate_engine_runtimes_mapping: No runtimes present in the get_runtimes API response")
         return
 
     # Tries to create/overwrite the data present in <home-dir>/.cmlutils/legacy_engine_runtime_constants.json
@@ -338,6 +338,6 @@ def populate_engine_runtimes_mapping():
             dump(legacy_runtime_image_map, legacy_engine_runtime_constants)
     except:
         logging.error(
-            "Please make sure Write Perms are set write/overwrite data."
+            "populate_engine_runtimes_mapping: Please make sure Write Perms are set write/overwrite data."
             "Encountered Error during write/overwrite data in ",
             os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json')
