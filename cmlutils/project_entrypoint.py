@@ -2,8 +2,8 @@ import logging
 import os
 import sys
 from configparser import ConfigParser, NoOptionError
-from logging.handlers import RotatingFileHandler
 from json import dump
+from logging.handlers import RotatingFileHandler
 
 import click
 
@@ -15,11 +15,10 @@ from cmlutils.constants import (
     URL_KEY,
     USERNAME_KEY,
 )
-
 from cmlutils.directory_utils import get_project_metadata_file_path
 from cmlutils.projects import ProjectExporter, ProjectImporter
 from cmlutils.script_models import ValidationResponseStatus
-from cmlutils.utils import get_absolute_path, read_json_file, parse_runtimes_v2
+from cmlutils.utils import get_absolute_path, parse_runtimes_v2, read_json_file
 from cmlutils.validator import (
     initialize_export_validators,
     initialize_import_validators,
@@ -281,8 +280,8 @@ def project_helpers_cmd():
     """
 
 
-@project_helpers_cmd.command("populate_runtimes")
-def populate_runtimes():
+@project_helpers_cmd.command("populate_engine_runtimes_mapping")
+def populate_engine_runtimes_mapping():
     project_name = "DEFAULT"
     config = _read_config_file(
         os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name)
@@ -297,7 +296,7 @@ def populate_runtimes():
     ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(local_directory, project_name, "logs")
-    _configure_project_command_logging(log_filedir)
+    _configure_project_command_logging(log_filedir, project_name)
 
     p = ProjectImporter(
         host=url,
