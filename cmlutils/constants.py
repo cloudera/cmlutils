@@ -20,6 +20,7 @@ PROJECT_NAME_KEY = "project_name"
 CA_PATH_KEY = "ca_path"
 MAX_API_PAGE_LENGTH = 30
 
+
 class ApiV2Endpoints(Enum):
     PROJECTS = "/api/v2/projects"
     CREATE_MODEL = "/api/v2/projects/$project_id/models"
@@ -28,12 +29,10 @@ class ApiV2Endpoints(Enum):
     STOP_APP = "/api/v2/projects/$project_id/applications/$application_id:stop"
     CREATE_JOB = "/api/v2/projects/$project_id/jobs"
     UPDATE_JOB = "/api/v2/projects/$project_id/jobs/$job_id"
-    SEARCH_PROJECT = "/api/v2/projects?search_filter=$search_option&include_public_projects=true&page_size=1000"
-    SEARCH_MODEL = "/api/v2/projects/$project_id/models?search_filter=$search_option&page_size=1000"
-    SEARCH_JOB = (
-        "/api/v2/projects/$project_id/jobs?search_filter=$search_option&page_size=1000"
-    )
-    SEARCH_APP = "/api/v2/projects/$project_id/applications?search_filter=$search_option&page_size=1000"
+    SEARCH_PROJECT = "/api/v2/projects?search_filter=$search_option&include_public_projects=true&page_size=100000"
+    SEARCH_MODEL = "/api/v2/projects/$project_id/models?search_filter=$search_option&page_size=100000"
+    SEARCH_JOB = "/api/v2/projects/$project_id/jobs?search_filter=$search_option&page_size=100000"
+    SEARCH_APP = "/api/v2/projects/$project_id/applications?search_filter=$search_option&page_size=100000"
     RUNTIME_ADDONS = "/api/v2/runtimeaddons?search_filter=$search_option"
     RUNTIMES = "/api/v2/runtimes?page_size=$page_size&page_token=$page_token"
 

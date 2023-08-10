@@ -284,7 +284,8 @@ def project_helpers_cmd():
 def populate_engine_runtimes_mapping():
     project_name = "DEFAULT"
     config = _read_config_file(
-        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name)
+        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name
+    )
 
     username = config[USERNAME_KEY]
     url = config[URL_KEY]
@@ -312,7 +313,9 @@ def populate_engine_runtimes_mapping():
 
     response = p.get_all_runtimes_v2(page_token)
     if not response:
-        logging.info("populate_engine_runtimes_mapping: Get Runtimes API returned empty response")
+        logging.info(
+            "populate_engine_runtimes_mapping: Get Runtimes API returned empty response"
+        )
         return
     runtimes = response.get("runtimes", [])
     page_token = response.get("next_page_token", "")
@@ -327,17 +330,26 @@ def populate_engine_runtimes_mapping():
     if len(runtimes) > 0:
         legacy_runtime_image_map = parse_runtimes_v2(runtimes)
     else:
-        logging.error("populate_engine_runtimes_mapping: No runtimes present in the get_runtimes API response")
+        logging.error(
+            "populate_engine_runtimes_mapping: No runtimes present in the get_runtimes API response"
+        )
         return
 
     # Tries to create/overwrite the data present in <home-dir>/.cmlutils/legacy_engine_runtime_constants.json
     # Please make sure utility is having necessary permissions to write/overwrite data
     try:
-        with open(os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json',
-                  'w') as legacy_engine_runtime_constants:
+        with open(
+            os.path.expanduser("~")
+            + "/.cmlutils/"
+            + "legacy_engine_runtime_constants.json",
+            "w",
+        ) as legacy_engine_runtime_constants:
             dump(legacy_runtime_image_map, legacy_engine_runtime_constants)
     except:
         logging.error(
             "populate_engine_runtimes_mapping: Please make sure Write Perms are set write/overwrite data."
             "Encountered Error during write/overwrite data in ",
-            os.path.expanduser("~") + "/.cmlutils/" + 'legacy_engine_runtime_constants.json')
+            os.path.expanduser("~")
+            + "/.cmlutils/"
+            + "legacy_engine_runtime_constants.json",
+        )
