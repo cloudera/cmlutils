@@ -462,7 +462,9 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
         if project_info_flatten[
             "default_project_engine_type"
-        ] == constants.LEGACY_ENGINE and not bool(legacy_engine_runtime_constants.engine_to_runtime_map()):
+        ] == constants.LEGACY_ENGINE and not bool(
+            legacy_engine_runtime_constants.engine_to_runtime_map()
+        ):
             project_metadata["default_project_engine_type"] = constants.LEGACY_ENGINE
 
         project_metadata["template"] = "blank"
@@ -513,13 +515,17 @@ class ProjectExporter(BaseWorkspaceInteractor):
                         if model_info_flatten["latestModelBuild.kernel"] != "":
                             runtime_identifier = legacy_engine_runtime_constants.engine_to_runtime_map().get(
                                 model_info_flatten["latestModelBuild.kernel"],
-                                legacy_engine_runtime_constants.engine_to_runtime_map().get("default"),
+                                legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                    "default"
+                                ),
                             )
                             model_metadata["runtime_identifier"] = runtime_identifier
                         else:
                             model_metadata[
                                 "runtime_identifier"
-                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                "default"
+                            )
                     else:
                         if model_info_flatten["latestModelBuild.kernel"] != "":
                             model_metadata["kernel"] = model_info_flatten[
@@ -528,7 +534,9 @@ class ProjectExporter(BaseWorkspaceInteractor):
                         else:
                             model_metadata[
                                 "runtime_identifier"
-                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                "default"
+                            )
 
             model_metadata_list.append(model_metadata)
         write_json_file(file_path=filepath, json_data=model_metadata_list)
@@ -556,9 +564,13 @@ class ProjectExporter(BaseWorkspaceInteractor):
                 # and the mapping should be given in LEGACY_ENGINE_MAP
                 # If the mapping is not given, the workloads will be created with the default engine images.
                 if bool(legacy_engine_runtime_constants.engine_to_runtime_map()):
-                    runtime_identifier = legacy_engine_runtime_constants.engine_to_runtime_map().get(
-                        app_info_flatten["currentDashboard.kernel"],
-                        legacy_engine_runtime_constants.engine_to_runtime_map().get("default"),
+                    runtime_identifier = (
+                        legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                            app_info_flatten["currentDashboard.kernel"],
+                            legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                "default"
+                            ),
+                        )
                     )
                     app_metadata["runtime_identifier"] = runtime_identifier
                 else:
@@ -590,7 +602,11 @@ class ProjectExporter(BaseWorkspaceInteractor):
                 if runtime_obj != None:
                     job_metadata.update(runtime_obj)
                 else:
-                    job_metadata["runtime_identifier"] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                    job_metadata[
+                        "runtime_identifier"
+                    ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                        "default"
+                    )
             else:
                 if (
                     job_info_flatten["project.default_project_engine_type"]
@@ -603,22 +619,32 @@ class ProjectExporter(BaseWorkspaceInteractor):
                         if job_info_flatten["kernel"] != "":
                             runtime_identifier = legacy_engine_runtime_constants.engine_to_runtime_map().get(
                                 job_info_flatten["kernel"],
-                                legacy_engine_runtime_constants.engine_to_runtime_map().get("default"),
+                                legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                    "default"
+                                ),
                             )
                             job_metadata["runtime_identifier"] = runtime_identifier
                         else:
                             job_metadata[
                                 "runtime_identifier"
-                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                "default"
+                            )
                     else:
                         if job_info_flatten["kernel"] != "":
                             job_metadata["kernel"] = job_info_flatten["kernel"]
                         else:
                             job_metadata[
                                 "runtime_identifier"
-                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                            ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                "default"
+                            )
                 else:
-                    job_metadata["runtime_identifier"] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                    job_metadata[
+                        "runtime_identifier"
+                    ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                        "default"
+                    )
 
             job_metadata_list.append(job_metadata)
 
@@ -905,8 +931,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
 
     def get_all_runtimes_v2(self, page_token=""):
         endpoint = Template(ApiV2Endpoints.RUNTIMES.value).substitute(
-            page_size=constants.MAX_API_PAGE_LENGTH,
-            page_token=page_token
+            page_size=constants.MAX_API_PAGE_LENGTH, page_token=page_token
         )
 
         response = call_api_v2(
@@ -999,9 +1024,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
             logging.error(f"Error: {e}")
             raise
 
-    def check_app_exist(self, app_name: str, proj_id: str) -> bool:
+    def check_app_exist(self, subdomain: str, proj_id: str) -> bool:
         try:
-            search_option = {"name": app_name}
+            search_option = {"subdomain": subdomain}
             encoded_option = urllib.parse.quote(
                 json.dumps(search_option).replace('"', '"')
             )
@@ -1018,7 +1043,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             app_list = response.json()["applications"]
             if app_list:
                 for app in app_list:
-                    if app["name"] == app_name:
+                    if app["subdomain"] == subdomain:
                         return True
             return False
         except KeyError as e:
@@ -1088,11 +1113,15 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                 )
                                 logging.info(
                                     "Applying default runtime %s",
-                                    legacy_engine_runtime_constants.engine_to_runtime_map().get("default"),
+                                    legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                        "default"
+                                    ),
                                 )
                                 model_metadata[
                                     "runtime_identifier"
-                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                    "default"
+                                )
                         model_id = self.create_model_v2(
                             proj_id=project_id, model_metadata=model_metadata
                         )
@@ -1135,7 +1164,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if app_metadata_list != None:
                 for app_metadata in app_metadata_list:
                     if not self.check_app_exist(
-                        app_name=app_metadata["name"], proj_id=project_id
+                        subdomain=app_metadata["subdomain"], proj_id=project_id
                     ):
                         app_metadata["project_id"] = project_id
                         if (
@@ -1155,7 +1184,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
                             else:
                                 app_metadata[
                                     "runtime_identifier"
-                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                    "default"
+                                )
                         app_id = self.create_application_v2(
                             proj_id=project_id, app_metadata=app_metadata
                         )
@@ -1166,8 +1197,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
                         )
                     else:
                         logging.info(
-                            "Skipping the already existing application- %s",
+                            "Skipping the already existing application %s with same subdomain- %s",
                             app_metadata["name"],
+                            app_metadata["subdomain"],
                         )
 
             return
@@ -1223,7 +1255,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
                             else:
                                 job_metadata[
                                     "runtime_identifier"
-                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get("default")
+                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
+                                    "default"
+                                )
                         target_job_id = self.create_job_v2(
                             proj_id=project_id, job_metadata=job_metadata
                         )
