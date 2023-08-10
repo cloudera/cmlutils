@@ -11,8 +11,7 @@ from typing import Any
 
 from requests import HTTPError
 
-from cmlutils import constants
-from cmlutils import legacy_engine_runtime_constants
+from cmlutils import constants, legacy_engine_runtime_constants
 from cmlutils.base import BaseWorkspaceInteractor
 from cmlutils.cdswctl import cdswctl_login, obtain_cdswctl
 from cmlutils.constants import ApiV1Endpoints, ApiV2Endpoints

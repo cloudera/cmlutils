@@ -230,7 +230,7 @@ def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
     legacy_runtime_image_map = {}
     legacy_runtime_kernel_map = {}
 
-    logging.info("Populating Runtimes data for editor: %s, edition: %s", editor, edition)
+    logging.info("Populating Engine to Runtimes Mapping for editor: %s, edition: %s", editor, edition)
 
     for image_details in runtimes:
         if image_details["editor"] == editor and image_details["edition"] == edition:
