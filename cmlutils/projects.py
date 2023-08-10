@@ -998,9 +998,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
             logging.error(f"Error: {e}")
             raise
 
-    def check_job_exist(self, job_name: str, proj_id: str) -> str:
+    def check_job_exist(self, job_name: str, script: str, proj_id: str) -> str:
         try:
-            search_option = {"name": job_name}
+            search_option = {"name": job_name,"script": script}
             encoded_option = urllib.parse.quote(
                 json.dumps(search_option).replace('"', '"')
             )
@@ -1017,7 +1017,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             job_list = response.json()["jobs"]
             if job_list:
                 for job in job_list:
-                    if job["name"] == job_name:
+                    if job["name"] == job_name and job["script"] == script:
                         return job["id"]
             return None
         except KeyError as e:
@@ -1229,7 +1229,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if job_metadata_list != None:
                 for job_metadata in job_metadata_list:
                     target_job_id = self.check_job_exist(
-                        job_name=job_metadata["name"], proj_id=project_id
+                        job_name=job_metadata["name"], script=job_metadata["script"], proj_id=project_id
                     )
                     if target_job_id == None:
                         job_metadata["project_id"] = project_id
