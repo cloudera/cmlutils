@@ -250,12 +250,12 @@ class ProjectExporter(BaseWorkspaceInteractor):
         return response.json()
 
     def get_creator_username(self):
-        loop_further = True
+        next_page_exists = True
         offset = 0
         project_list = []
 
         # Handle Pagination if exists
-        while loop_further:
+        while next_page_exists:
             # Note - projectName param makes LIKE query not the exact match
             endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
                 username=self.username,
@@ -282,7 +282,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             if (not response.json()) or len(
                 response.json()
             ) > constants.MAX_API_PAGE_LENGTH:
-                loop_further = False
+                next_page_exists = False
 
         if project_list:
             for project in project_list:
@@ -696,12 +696,12 @@ class ProjectImporter(BaseWorkspaceInteractor):
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
 
     def get_creator_username(self):
-        loop_further = True
+        next_page_exists = True
         offset = 0
         project_list = []
 
         # Handle Pagination if exists
-        while loop_further:
+        while next_page_exists:
             # Note - projectName param makes LIKE query not the exact match
             endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
                 username=self.username,
@@ -728,7 +728,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if (not response.json()) or len(
                 response.json()
             ) > constants.MAX_API_PAGE_LENGTH:
-                loop_further = False
+                next_page_exists = False
 
         if project_list:
             for project in project_list:
