@@ -50,7 +50,7 @@ class ApiV1Endpoints(Enum):
     API_KEY = "/api/v1/users/$username/apikey"
     RUNTIMES = "/api/v1/runtimes"
     USER_INFO = "/api/v1/users/$username"
-    PROJECTS_SUMMARY = "/api/v1/users/$username/projects-summary?all=true&context=$username&sortColumn=updated_at"
+    PROJECTS_SUMMARY = "/api/v1/users/$username/projects-summary?all=true&context=$username&sortColumn=updated_at&projectName=$projectName&limit=$limit&offset=$offset"
 
 
 """Mapping of old fields v1 to new fields of v2"""
