@@ -275,13 +275,13 @@ class ProjectExporter(BaseWorkspaceInteractor):
             offset = offset + 1
 
             """
-            End loop if
-            a. If response is [] 
+            End loop if            
+            a. If response len is less than MAX_API_PAGE_LENGTH 
+                => Possible if less number of records
+                => Possible if response is [] => len 0             
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
             """
-            if (not response.json()) or len(
-                response.json()
-            ) > constants.MAX_API_PAGE_LENGTH:
+            if len(response.json()) != constants.MAX_API_PAGE_LENGTH:
                 next_page_exists = False
 
         if project_list:
@@ -721,13 +721,13 @@ class ProjectImporter(BaseWorkspaceInteractor):
             offset = offset + 1
 
             """
-            End loop if
-            a. If response is [] 
+            End loop if            
+            a. If response len is less than MAX_API_PAGE_LENGTH 
+                => Possible if less number of records
+                => Possible if response is [] => len 0             
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
             """
-            if (not response.json()) or len(
-                response.json()
-            ) > constants.MAX_API_PAGE_LENGTH:
+            if len(response.json()) != constants.MAX_API_PAGE_LENGTH:
                 next_page_exists = False
 
         if project_list:
