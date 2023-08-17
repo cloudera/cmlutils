@@ -271,18 +271,23 @@ class ProjectExporter(BaseWorkspaceInteractor):
                 ca_path=self.ca_path,
             )
 
-            project_list = project_list + response.json()
-            offset = offset + 1
-
             """
-            End loop if            
+            End loop            
             a. If response len is less than MAX_API_PAGE_LENGTH 
                 => Possible if less number of records
                 => Possible if response is [] => len 0             
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
+            c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
             """
             if len(response.json()) != constants.MAX_API_PAGE_LENGTH:
                 next_page_exists = False
+            else:
+                # Handling if CDSW non-paginated response length is MAX_API_PAGE_LENGTH
+                if project_list == response.json():
+                    break
+
+            project_list = project_list + response.json()
+            offset = offset + 1
 
         if project_list:
             for project in project_list:
@@ -717,18 +722,23 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 ca_path=self.ca_path,
             )
 
-            project_list = project_list + response.json()
-            offset = offset + 1
-
             """
-            End loop if            
+            End loop           
             a. If response len is less than MAX_API_PAGE_LENGTH 
                 => Possible if less number of records
                 => Possible if response is [] => len 0             
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
+            c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
             """
             if len(response.json()) != constants.MAX_API_PAGE_LENGTH:
                 next_page_exists = False
+            else:
+                # Handling if CDSW non-paginated response length is MAX_API_PAGE_LENGTH
+                if project_list == response.json():
+                    break
+
+            project_list = project_list + response.json()
+            offset = offset + 1
 
         if project_list:
             for project in project_list:
