@@ -250,17 +250,45 @@ class ProjectExporter(BaseWorkspaceInteractor):
         return response.json()
 
     def get_creator_username(self):
-        endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
-            username=self.username
-        )
-        response = call_api_v1(
-            host=self.host,
-            endpoint=endpoint,
-            method="GET",
-            api_key=self.api_key,
-            ca_path=self.ca_path,
-        )
-        project_list = response.json()
+        next_page_exists = True
+        offset = 0
+        project_list = []
+
+        # Handle Pagination if exists
+        while next_page_exists:
+            # Note - projectName param makes LIKE query not the exact match
+            endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
+                username=self.username,
+                projectName=self.project_name,
+                limit=constants.MAX_API_PAGE_LENGTH,
+                offset=offset * constants.MAX_API_PAGE_LENGTH,
+            )
+            response = call_api_v1(
+                host=self.host,
+                endpoint=endpoint,
+                method="GET",
+                api_key=self.api_key,
+                ca_path=self.ca_path,
+            )
+
+            """
+            End loop            
+            a. If response len is less than MAX_API_PAGE_LENGTH 
+                => Possible if less number of records
+                => Possible if response is [] => len 0             
+            b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
+            c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
+            """
+            if len(response.json()) != constants.MAX_API_PAGE_LENGTH:
+                next_page_exists = False
+            else:
+                # Handling if CDSW non-paginated response length is MAX_API_PAGE_LENGTH
+                if project_list == response.json():
+                    break
+
+            project_list = project_list + response.json()
+            offset = offset + 1
+
         if project_list:
             for project in project_list:
                 if project["name"] == self.project_name:
@@ -673,17 +701,45 @@ class ProjectImporter(BaseWorkspaceInteractor):
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
 
     def get_creator_username(self):
-        endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
-            username=self.username
-        )
-        response = call_api_v1(
-            host=self.host,
-            endpoint=endpoint,
-            method="GET",
-            api_key=self.api_key,
-            ca_path=self.ca_path,
-        )
-        project_list = response.json()
+        next_page_exists = True
+        offset = 0
+        project_list = []
+
+        # Handle Pagination if exists
+        while next_page_exists:
+            # Note - projectName param makes LIKE query not the exact match
+            endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
+                username=self.username,
+                projectName=self.project_name,
+                limit=constants.MAX_API_PAGE_LENGTH,
+                offset=offset * constants.MAX_API_PAGE_LENGTH,
+            )
+            response = call_api_v1(
+                host=self.host,
+                endpoint=endpoint,
+                method="GET",
+                api_key=self.api_key,
+                ca_path=self.ca_path,
+            )
+
+            """
+            End loop           
+            a. If response len is less than MAX_API_PAGE_LENGTH 
+                => Possible if less number of records
+                => Possible if response is [] => len 0             
+            b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
+            c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
+            """
+            if len(response.json()) != constants.MAX_API_PAGE_LENGTH:
+                next_page_exists = False
+            else:
+                # Handling if CDSW non-paginated response length is MAX_API_PAGE_LENGTH
+                if project_list == response.json():
+                    break
+
+            project_list = project_list + response.json()
+            offset = offset + 1
+
         if project_list:
             for project in project_list:
                 if project["name"] == self.project_name:
@@ -1000,7 +1056,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
 
     def check_job_exist(self, job_name: str, script: str, proj_id: str) -> str:
         try:
-            search_option = {"name": job_name,"script": script}
+            search_option = {"name": job_name, "script": script}
             encoded_option = urllib.parse.quote(
                 json.dumps(search_option).replace('"', '"')
             )
@@ -1229,7 +1285,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if job_metadata_list != None:
                 for job_metadata in job_metadata_list:
                     target_job_id = self.check_job_exist(
-                        job_name=job_metadata["name"], script=job_metadata["script"], proj_id=project_id
+                        job_name=job_metadata["name"],
+                        script=job_metadata["script"],
+                        proj_id=project_id,
                     )
                     if target_job_id == None:
                         job_metadata["project_id"] = project_id
