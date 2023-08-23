@@ -106,6 +106,6 @@ JOB_MAP = {
     "report.timeout_recipients": "timeout_recipients",
 }
 LEGACY_ENGINE = "legacy_engine"
-SPARK_ADDON = "spark320"
+SPARK_ADDON = "spark3"
 ORGANIZATION_TYPE = "organization"
 USER_TYPE = "user"
