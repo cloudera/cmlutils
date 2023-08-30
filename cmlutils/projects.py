@@ -154,8 +154,10 @@ def transfer_project_files(
     destination: str,
     retry_limit: int,
     project_name: str,
+    log_filedir: str,
     exclude_file_path: str = None,
 ):
+    log_filename = log_filedir + constants.LOG_FILE
     logging.info("Transfering files over ssh from sshport %s", sshport)
     ssh_directive = f"ssh -p {sshport} -oStrictHostKeyChecking=no"
     subprocess_arguments = [
@@ -168,6 +170,8 @@ def transfer_project_files(
         "-a",
         "-e",
         ssh_directive,
+        "--log-file",
+        log_filename
     ]
     if exclude_file_path is not None:
         logging.info("Exclude file path is provided for file transfer")
@@ -416,7 +420,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             self._ssh_subprocess.send_signal(signal.SIGINT)
         self._ssh_subprocess = None
 
-    def transfer_project_files(self):
+    def transfer_project_files(self, log_filedir: str):
         rsync_enabled_runtime_id = -1
         if is_project_configured_with_runtimes(
             host=self.host,
@@ -473,6 +477,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             retry_limit=3,
             project_name=self.project_name,
             exclude_file_path=exclude_file_path,
+            log_filedir = log_filedir
         )
         self.remove_cdswctl_dir(cdswctl_path)
         self.terminate_ssh_session()
@@ -746,7 +751,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                     return project["creator"]["username"], project["slug_raw"]
         return None
 
-    def transfer_project(self):
+    def transfer_project(self, log_filedir: str):
         rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
             host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path
         )
@@ -778,6 +783,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             destination=constants.CDSW_PROJECTS_ROOT_DIR,
             retry_limit=3,
             project_name=self.project_name,
+            log_filedir = log_filedir
         )
         self.remove_cdswctl_dir(cdswctl_path)
 
