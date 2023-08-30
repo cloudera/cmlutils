@@ -156,7 +156,7 @@ def project_export_cmd(project_name):
             project_slug=project_slug,
             owner_type=owner_type,
         )
-        pexport.transfer_project_files()
+        pexport.transfer_project_files(log_filedir=log_filedir)
         pexport.dump_project_and_related_metadata()
     except:
         logging.error("Exception:", exc_info=1)
@@ -256,7 +256,7 @@ def project_import_cmd(project_name):
             ca_path=ca_path,
             project_slug=project_slug,
         )
-        pimport.transfer_project()
+        pimport.transfer_project(log_filedir=log_filedir)
         pimport.terminate_ssh_session()
 
         if uses_engine:
