@@ -35,7 +35,6 @@ from cmlutils.utils import (
     write_json_file,
 )
 
-METRICS_DATA = dict()
 
 
 def is_project_configured_with_runtimes(
@@ -286,6 +285,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         self.project_id = None
         self.owner_type = owner_type
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
+        self.metrics_data = dict()
 
     # Get CDSW project info using API v1
     def get_project_infov1(self):
@@ -697,8 +697,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
             model_metadata_list.append(model_metadata)
         write_json_file(file_path=filepath, json_data=model_metadata_list)
-        METRICS_DATA["total_model"] = len(model_name_list)
-        METRICS_DATA["model_name_list"] = sorted(model_name_list)
+        self.metrics_data["total_model"] = len(model_name_list)
+        self.metrics_data["model_name_list"] = sorted(model_name_list)
 
     def _export_application_metadata(self):
         filepath = get_applications_metadata_file_path(
@@ -739,8 +739,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
             app_metadata_list.append(app_metadata)
 
         write_json_file(file_path=filepath, json_data=app_metadata_list)
-        METRICS_DATA["total_application"] = len(app_metadata_list)
-        METRICS_DATA["application_name_list"] = sorted(app_name_list)
+        self.metrics_data["total_application"] = len(app_metadata_list)
+        self.metrics_data["application_name_list"] = sorted(app_name_list)
 
     def collect_export_job_list(self):
         job_list = self.get_jobs_listv1()
@@ -860,15 +860,15 @@ class ProjectExporter(BaseWorkspaceInteractor):
             job_metadata_list.append(job_metadata)
 
         write_json_file(file_path=filepath, json_data=job_metadata_list)
-        METRICS_DATA["total_job"] = len(job_name_list)
-        METRICS_DATA["job_name_list"] = sorted(job_name_list)
+        self.metrics_data["total_job"] = len(job_name_list)
+        self.metrics_data["job_name_list"] = sorted(job_name_list)
 
     def dump_project_and_related_metadata(self):
         self._export_project_metadata()
         self._export_models_metadata()
         self._export_application_metadata()
         self._export_job_metadata()
-        return METRICS_DATA
+        return self.metrics_data
 
     def collect_export_project_data(self):
         proj_data_raw = self.get_project_infov1()
@@ -909,6 +909,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self._ssh_subprocess = None
         self.top_level_dir = top_level_dir
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
+        self.metrics_data = dict()
 
     def get_creator_username(self):
         next_page_exists = True
@@ -1399,7 +1400,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.collect_import_model_list(project_id=project_id)
         self.collect_import_application_list(project_id=project_id)
         self.collect_import_job_list(project_id=project_id)
-        return METRICS_DATA
+        return self.metrics_data
 
     def collect_imported_project_data(self, project_id: str):
         proj_data_raw = self.get_project_infov2(proj_id=project_id)
@@ -1675,8 +1676,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
             job_metadata = extract_fields(job_info_flatten, constants.JOB_MAP)
             job_name_list.append(job_metadata["name"])
             job_metadata_list.append(job_metadata)
-        METRICS_DATA["total_job"] = len(job_name_list)
-        METRICS_DATA["job_name_list"] = sorted(job_name_list)
+        self.metrics_data["total_job"] = len(job_name_list)
+        self.metrics_data["job_name_list"] = sorted(job_name_list)
         return job_metadata_list, sorted(job_name_list)
 
     def collect_import_model_list(self, project_id):
@@ -1700,8 +1701,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
             model_detail_data.update(model_metadata)
             model_name_list.append(model_info_flatten["name"])
             model_metadata_list.append(model_detail_data)
-        METRICS_DATA["total_model"] = len(model_name_list)
-        METRICS_DATA["model_name_list"] = sorted(model_name_list)
+        self.metrics_data["total_model"] = len(model_name_list)
+        self.metrics_data["model_name_list"] = sorted(model_name_list)
         return model_metadata_list, sorted(model_name_list)
 
     def collect_import_application_list(self, project_id):
@@ -1717,6 +1718,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
             app_metadata = extract_fields(app_info_flatten, constants.APPLICATION_MAP)
             app_name_list.append(app_metadata["name"])
             app_metadata_list.append(app_metadata)
-        METRICS_DATA["total_application"] = len(app_name_list)
-        METRICS_DATA["application_name_list"] = sorted(app_name_list)
+        self.metrics_data["total_application"] = len(app_name_list)
+        self.metrics_data["application_name_list"] = sorted(app_name_list)
         return app_metadata_list, sorted(app_name_list)
