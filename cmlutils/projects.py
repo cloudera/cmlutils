@@ -36,6 +36,7 @@ from cmlutils.utils import (
 )
 
 
+
 def is_project_configured_with_runtimes(
     host: str,
     username: str,
@@ -171,7 +172,7 @@ def transfer_project_files(
         "-e",
         ssh_directive,
         "--log-file",
-        log_filename
+        log_filename,
     ]
     if exclude_file_path is not None:
         logging.info("Exclude file path is provided for file transfer")
@@ -184,6 +185,66 @@ def transfer_project_files(
             return
         logging.warning("Got non zero return code. Retrying...")
     if return_code != 0:
+        logging.error(
+            "Retries exhausted for rsync.. Failing script for project %s", project_name
+        )
+        raise RuntimeError("Retries exhausted for rsync.. Failing script")
+
+
+def verify_files(
+    sshport: int,
+    source: str,
+    destination: str,
+    retry_limit: int,
+    project_name: str,
+    log_filedir: str,
+    exclude_file_path: str = None,
+):
+    log_filename = log_filedir + constants.LOG_FILE
+    logging.info("Validating files over ssh from sshport %s", sshport)
+    ssh_directive = f"ssh -p {sshport} -oStrictHostKeyChecking=no"
+    subprocess_arguments = [
+        "rsync",
+        "-n",
+        "-r",
+        "-c",
+        "-a",
+        "--delete",
+        "--itemize-changes",
+        "--out-format=%n",
+        "-e",
+        ssh_directive,
+        "--log-file",
+        log_filename,
+    ]
+    if exclude_file_path is not None:
+        logging.info("Exclude file path is provided for file Verification")
+        subprocess_arguments.append(f"--exclude-from={exclude_file_path}")
+    subprocess_arguments.extend([source, destination])
+    for i in range(retry_limit):
+        result = subprocess.run(
+            subprocess_arguments, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        if result.returncode == 0:
+            # Removing any . files
+            file_list = (
+                result.stdout.decode("utf-8")
+                .strip()
+                .replace(" ", "")
+                .replace("./", "")
+                .replace("deleting", "")
+                .replace("\t", "")
+                .split("\n")
+            )
+            # Use list comprehension to remove empty strings and .local and ,cache files
+            filtered_list = [
+                file
+                for file in file_list
+                if (file != "" and ".local" not in file and ".cache" not in file)
+            ]
+            return filtered_list
+        logging.warning("Got non zero return code. Retrying...")
+    if result.returncode != 0:
         logging.error(
             "Retries exhausted for rsync.. Failing script for project %s", project_name
         )
@@ -224,6 +285,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         self.project_id = None
         self.owner_type = owner_type
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
+        self.metrics_data = dict()
 
     # Get CDSW project info using API v1
     def get_project_infov1(self):
@@ -477,10 +539,70 @@ class ProjectExporter(BaseWorkspaceInteractor):
             retry_limit=3,
             project_name=self.project_name,
             exclude_file_path=exclude_file_path,
-            log_filedir = log_filedir
+            log_filedir=log_filedir,
         )
         self.remove_cdswctl_dir(cdswctl_path)
         self.terminate_ssh_session()
+
+    def verify_project_files(self, log_filedir: str):
+        rsync_enabled_runtime_id = -1
+        if is_project_configured_with_runtimes(
+            host=self.host,
+            username=self.username,
+            project_name=self.project_name,
+            api_key=self.api_key,
+            ca_path=self.ca_path,
+            project_slug=self.project_slug,
+        ):
+            rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
+                host=self.host, api_key=self.api_key, ca_path=self.ca_path
+            )
+        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path)
+        login_response = cdswctl_login(
+            cdswctl_path=cdswctl_path,
+            host=self.host,
+            username=self.username,
+            api_key=self.api_key,
+        )
+        if login_response.returncode != 0:
+            logging.error("Cdswctl login failed")
+            raise RuntimeError
+
+        logging.info("Creating SSH connection")
+        ssh_subprocess, port = open_ssh_endpoint(
+            cdswctl_path=cdswctl_path,
+            project_name=self.project_name,
+            runtime_id=rsync_enabled_runtime_id,
+            project_slug=self.project_slug,
+        )
+        self._ssh_subprocess = ssh_subprocess
+        exclude_file_path = get_ignore_files(
+            host=self.host,
+            username=self.username,
+            project_name=self.project_name,
+            api_key=self.api_key,
+            ca_path=self.ca_path,
+            ssh_port=port,
+            project_slug=self.project_slug,
+            top_level_dir=self.top_level_dir,
+        )
+        result = verify_files(
+            sshport=port,
+            source=os.path.join(
+                get_project_data_dir_path(
+                    top_level_dir=self.top_level_dir, project_name=self.project_name
+                ),
+                "",
+            ),
+            destination=constants.CDSW_PROJECTS_ROOT_DIR,
+            retry_limit=3,
+            project_name=self.project_name,
+            exclude_file_path=exclude_file_path,
+            log_filedir=log_filedir,
+        )
+        self.remove_cdswctl_dir(cdswctl_path)
+        self.terminate_ssh_session()
+        return result
 
     def _export_project_metadata(self):
         filepath = get_project_metadata_file_path(
@@ -520,6 +642,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         )
         logging.info("Exporting models metadata to path %s", filepath)
         model_list = self.get_models_listv1(project_id=self.project_id)
+        model_name_list = []
         if len(model_list) == 0:
             logging.info("Models are not present in the project %s.", self.project_name)
         runtime_list = self.get_all_runtimes()
@@ -527,6 +650,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         for model in model_list:
             model_info_flatten = flatten_json_data(model)
             model_metadata = extract_fields(model_info_flatten, constants.MODEL_MAP)
+            model_name_list.append(model_metadata["name"])
             if "authEnabled" in model:
                 model_metadata["disable_authentication"] = not model["authEnabled"]
             if "latestModelBuild.runtimeId" in model_info_flatten:
@@ -573,6 +697,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
             model_metadata_list.append(model_metadata)
         write_json_file(file_path=filepath, json_data=model_metadata_list)
+        self.metrics_data["total_model"] = len(model_name_list)
+        self.metrics_data["model_name_list"] = sorted(model_name_list)
 
     def _export_application_metadata(self):
         filepath = get_applications_metadata_file_path(
@@ -580,6 +706,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         )
         logging.info("Exporting application metadata to path %s", filepath)
         app_list = self.get_app_listv1()
+        app_name_list = []
         if len(app_list) == 0:
             logging.info(
                 "Applications are not present in the project %s.", self.project_name
@@ -588,6 +715,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         for app in app_list:
             app_info_flatten = flatten_json_data(app)
             app_metadata = extract_fields(app_info_flatten, constants.APPLICATION_MAP)
+            app_name_list.append(app_metadata["name"])
             app_metadata["environment"] = app["environment"]
             if (
                 app_info_flatten["currentDashboard.kernel"] != None
@@ -609,7 +737,54 @@ class ProjectExporter(BaseWorkspaceInteractor):
                 else:
                     app_metadata["kernel"] = app_info_flatten["currentDashboard.kernel"]
             app_metadata_list.append(app_metadata)
+
         write_json_file(file_path=filepath, json_data=app_metadata_list)
+        self.metrics_data["total_application"] = len(app_metadata_list)
+        self.metrics_data["application_name_list"] = sorted(app_name_list)
+
+    def collect_export_job_list(self):
+        job_list = self.get_jobs_listv1()
+        job_name_list = []
+        if len(job_list) == 0:
+            logging.info("Jobs are not present in the project %s.", self.project_name)
+        job_metadata_list = []
+        for job in job_list:
+            job_info_flatten = flatten_json_data(job)
+            job_metadata = extract_fields(job_info_flatten, constants.JOB_MAP)
+            job_name_list.append(job_metadata["name"])
+            job_metadata_list.append(job_metadata)
+        return job_metadata_list, sorted(job_name_list)
+
+    def collect_export_model_list(self, proj_id):
+        model_list = self.get_models_listv1(proj_id)
+        model_name_list = []
+        if len(model_list) == 0:
+            logging.info("Models are not present in the project %s.", self.project_name)
+        model_metadata_list = []
+        for model in model_list:
+            model_info_flatten = flatten_json_data(model)
+            model_metadata = extract_fields(model_info_flatten, constants.MODEL_MAP)
+            model_name_list.append(model_metadata["name"])
+            model_metadata_list.append(model_metadata)
+        return model_metadata_list, sorted(model_name_list)
+
+    def collect_export_application_list(self):
+        app_list = self.get_app_listv1()
+        app_name_list = []
+        if len(app_list) == 0:
+            logging.info(
+                "Applications are not present in the project %s.", self.project_name
+            )
+        app_metadata_list = []
+        for app in app_list:
+            app_info_flatten = flatten_json_data(app)
+            app_metadata = extract_fields(app_info_flatten, constants.APPLICATION_MAP)
+            app_name_list.append(app_metadata["name"])
+            project_env = self.get_project_env()
+            if not app_metadata.get("environment"):
+                app_metadata["environment"] = project_env
+            app_metadata_list.append(app_metadata)
+        return app_metadata_list, sorted(app_name_list)
 
     def _export_job_metadata(self):
         filepath = get_jobs_metadata_file_path(
@@ -621,10 +796,13 @@ class ProjectExporter(BaseWorkspaceInteractor):
             logging.info("Jobs are not present in the project %s.", self.project_name)
         runtime_list = self.get_all_runtimes()
         job_metadata_list = []
+        job_name_list = []
+
         for job_item in job_list:
             job = self.get_job_infov1(job_item["id"])
             job_info_flatten = flatten_json_data(job)
             job_metadata = extract_fields(job_info_flatten, constants.JOB_MAP)
+            job_name_list.append(job_metadata["name"])
             job_metadata["attachments"] = job.get("report", []).get("attachments", [])
             job_metadata["environment"] = job.get("environment", {})
             if "runtime.id" in job_info_flatten:
@@ -682,12 +860,39 @@ class ProjectExporter(BaseWorkspaceInteractor):
             job_metadata_list.append(job_metadata)
 
         write_json_file(file_path=filepath, json_data=job_metadata_list)
+        self.metrics_data["total_job"] = len(job_name_list)
+        self.metrics_data["job_name_list"] = sorted(job_name_list)
 
     def dump_project_and_related_metadata(self):
         self._export_project_metadata()
         self._export_models_metadata()
         self._export_application_metadata()
         self._export_job_metadata()
+        return self.metrics_data
+
+    def collect_export_project_data(self):
+        proj_data_raw = self.get_project_infov1()
+        proj_info_flatten = flatten_json_data(proj_data_raw)
+        proj_data = [extract_fields(proj_info_flatten, constants.PROJECT_MAP)]
+        proj_list = [self.project_slug.lower()]
+        if not proj_data[0].get("shared_memory_limit"):
+            proj_data[0]["shared_memory_limit"] = 0
+
+        model_data, model_list = self.collect_export_model_list(
+            int(proj_data_raw["id"])
+        )
+        app_data, app_list = self.collect_export_application_list()
+        job_data, job_list = self.collect_export_job_list()
+        return (
+            proj_data,
+            proj_list,
+            model_data,
+            model_list,
+            app_data,
+            app_list,
+            job_data,
+            job_list,
+        )
 
 
 class ProjectImporter(BaseWorkspaceInteractor):
@@ -704,6 +909,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self._ssh_subprocess = None
         self.top_level_dir = top_level_dir
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
+        self.metrics_data = dict()
 
     def get_creator_username(self):
         next_page_exists = True
@@ -783,9 +989,46 @@ class ProjectImporter(BaseWorkspaceInteractor):
             destination=constants.CDSW_PROJECTS_ROOT_DIR,
             retry_limit=3,
             project_name=self.project_name,
-            log_filedir = log_filedir
+            log_filedir=log_filedir,
         )
         self.remove_cdswctl_dir(cdswctl_path)
+
+    def verify_project(self, log_filedir: str):
+        rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
+            host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path
+        )
+        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path)
+        login_response = cdswctl_login(
+            cdswctl_path=cdswctl_path,
+            host=self.host,
+            username=self.username,
+            api_key=self.api_key,
+        )
+        if login_response.returncode != 0:
+            logging.error("Cdswctl login failed")
+            raise RuntimeError
+        ssh_subprocess, port = open_ssh_endpoint(
+            cdswctl_path=cdswctl_path,
+            project_name=self.project_name,
+            runtime_id=rsync_enabled_runtime_id,
+            project_slug=self.project_slug,
+        )
+        self._ssh_subprocess = ssh_subprocess
+        result = verify_files(
+            sshport=port,
+            source=os.path.join(
+                get_project_data_dir_path(
+                    top_level_dir=self.top_level_dir, project_name=self.project_name
+                ),
+                "",
+            ),
+            destination=constants.CDSW_PROJECTS_ROOT_DIR,
+            retry_limit=3,
+            project_name=self.project_name,
+            log_filedir=log_filedir,
+        )
+        self.remove_cdswctl_dir(cdswctl_path)
+        return result
 
     def terminate_ssh_session(self):
         logging.info("Terminating ssh connection.")
@@ -912,38 +1155,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
             return json_resp["id"]
         except KeyError as e:
             logging.error(f"Error: {e}")
-            raise
-
-    def stop_application_v2(self, proj_id: str, app_id: str) -> None:
-        endpoint = Template(ApiV2Endpoints.STOP_APP.value).substitute(
-            project_id=proj_id, application_id=app_id
-        )
-        response = call_api_v2(
-            host=self.host,
-            endpoint=endpoint,
-            method="POST",
-            user_token=self.apiv2_key,
-            ca_path=self.ca_path,
-        )
-        return
-
-    def create_job_v2(self, proj_id: str, job_metadata) -> str:
-        try:
-            endpoint = Template(ApiV2Endpoints.CREATE_JOB.value).substitute(
-                project_id=proj_id
-            )
-            response = call_api_v2(
-                host=self.host,
-                endpoint=endpoint,
-                method="POST",
-                user_token=self.apiv2_key,
-                json_data=job_metadata,
-                ca_path=self.ca_path,
-            )
-            json_resp = response.json()
-            return json_resp["id"]
-        except KeyError as e:
-            print(f"Error: {e}")
             raise
 
     def update_job_v2(self, proj_id: str, job_id: str, job_metadata) -> None:
@@ -1112,6 +1323,58 @@ class ProjectImporter(BaseWorkspaceInteractor):
             logging.error(f"Error: {e}")
             raise
 
+    def get_models_listv2(self, proj_id: str):
+        endpoint = Template(ApiV2Endpoints.MODELS_LIST.value).substitute(
+            project_id=proj_id
+        )
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        return response.json()
+
+    def get_models_detailv2(self, proj_id: str, model_id: str):
+        endpoint = Template(ApiV2Endpoints.BUILD_MODEL.value).substitute(
+            project_id=proj_id, model_id=model_id
+        )
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        return response.json()
+
+    def get_jobs_listv2(self, proj_id: str):
+        endpoint = Template(ApiV2Endpoints.JOBS_LIST.value).substitute(
+            project_id=proj_id
+        )
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        return response.json()
+
+    def get_application_listv2(self, proj_id: str):
+        endpoint = Template(ApiV2Endpoints.APPS_LIST.value).substitute(
+            project_id=proj_id
+        )
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        return response.json()
+
     def import_metadata(self, project_id: str):
         models_metadata_filepath = get_models_metadata_file_path(
             top_level_dir=self.top_level_dir, project_name=self.project_name
@@ -1132,6 +1395,34 @@ class ProjectImporter(BaseWorkspaceInteractor):
         )
         self.create_paused_jobs(
             project_id=project_id, job_metadata_filepath=job_metadata_filepath
+        )
+        self.get_project_infov2(proj_id=project_id)
+        self.collect_import_model_list(project_id=project_id)
+        self.collect_import_application_list(project_id=project_id)
+        self.collect_import_job_list(project_id=project_id)
+        return self.metrics_data
+
+    def collect_imported_project_data(self, project_id: str):
+        proj_data_raw = self.get_project_infov2(proj_id=project_id)
+        proj_info_flatten = flatten_json_data(proj_data_raw)
+        proj_data = [extract_fields(proj_info_flatten, constants.PROJECT_MAPV2)]
+        proj_list = [
+            self.project_name.lower()
+            if self.check_project_exist(self.project_name)
+            else None
+        ]
+        model_data, model_list = self.collect_import_model_list(project_id=project_id)
+        app_data, app_list = self.collect_import_application_list(project_id=project_id)
+        job_data, job_list = self.collect_import_job_list(project_id=project_id)
+        return (
+            proj_data,
+            proj_list,
+            model_data,
+            model_list,
+            app_data,
+            app_list,
+            job_data,
+            job_list,
         )
 
     def create_models(self, project_id: str, models_metadata_filepath: str):
@@ -1360,3 +1651,73 @@ class ProjectImporter(BaseWorkspaceInteractor):
             logging.error("Job migration failed")
             logging.error(f"Error: {e}")
             raise
+
+    def get_project_infov2(self, proj_id: str):
+        endpoint = Template(ApiV2Endpoints.GET_PROJECT.value).substitute(
+            project_id=proj_id
+        )
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        return response.json()
+
+    def collect_import_job_list(self, project_id):
+        job_list = self.get_jobs_listv2(proj_id=project_id)["jobs"]
+        job_name_list = []
+        if len(job_list) == 0:
+            logging.info("Jobs are not present in the project %s.", self.project_name)
+        job_metadata_list = []
+        for job in job_list:
+            job_info_flatten = flatten_json_data(job)
+            job_metadata = extract_fields(job_info_flatten, constants.JOB_MAP)
+            job_name_list.append(job_metadata["name"])
+            job_metadata_list.append(job_metadata)
+        self.metrics_data["total_job"] = len(job_name_list)
+        self.metrics_data["job_name_list"] = sorted(job_name_list)
+        return job_metadata_list, sorted(job_name_list)
+
+    def collect_import_model_list(self, project_id):
+        model_list = self.get_models_listv2(proj_id=project_id)["models"]
+        model_name_list = []
+        if len(model_list) == 0:
+            logging.info("Models are not present in the project %s.", self.project_name)
+        model_metadata_list = []
+        model_detail_data = {}
+        for model in model_list:
+            model_info_flatten = flatten_json_data(model)
+            model_detail_data["name"] = model_info_flatten["name"]
+            model_detail_data["description"] = model_info_flatten["description"]
+            model_detail_data["auth_enabled"] = model_info_flatten["auth_enabled"]
+            model_details = self.get_models_detailv2(
+                proj_id=project_id, model_id=model_info_flatten["id"]
+            )
+            model_metadata = extract_fields(
+                model_details["model_builds"][0], constants.MODEL_MAPV2
+            )
+            model_detail_data.update(model_metadata)
+            model_name_list.append(model_info_flatten["name"])
+            model_metadata_list.append(model_detail_data)
+        self.metrics_data["total_model"] = len(model_name_list)
+        self.metrics_data["model_name_list"] = sorted(model_name_list)
+        return model_metadata_list, sorted(model_name_list)
+
+    def collect_import_application_list(self, project_id):
+        app_list = self.get_application_listv2(proj_id=project_id)["applications"]
+        app_name_list = []
+        if len(app_list) == 0:
+            logging.info(
+                "Applications are not present in the project %s.", self.project_name
+            )
+        app_metadata_list = []
+        for app in app_list:
+            app_info_flatten = flatten_json_data(app)
+            app_metadata = extract_fields(app_info_flatten, constants.APPLICATION_MAP)
+            app_name_list.append(app_metadata["name"])
+            app_metadata_list.append(app_metadata)
+        self.metrics_data["total_application"] = len(app_name_list)
+        self.metrics_data["application_name_list"] = sorted(app_name_list)
+        return app_metadata_list, sorted(app_name_list)

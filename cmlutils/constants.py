@@ -10,6 +10,8 @@ EXCLUDE_FILE_ROOT_PATH = "/home/cdsw/.exportignore"
 FILE_NAME = ".exportignore"
 IGNORE_FILE_PATH = ".exportignore"
 LOG_FILE = "/migration.log"
+EXPORT_METRIC_FILE = "/export_metrics.json"
+IMPORT_METRIC_FILE = "/import_metrics.json"
 BASE_PATH_CDSWCTL = "/tmp/cdswctls"
 DEFAULT_ENTRIES = [".cache", ".local"]
 USERNAME_KEY = "username"
@@ -23,12 +25,16 @@ MAX_API_PAGE_LENGTH = 30
 
 class ApiV2Endpoints(Enum):
     PROJECTS = "/api/v2/projects"
+    GET_PROJECT = "/api/v2/projects/$project_id"
     CREATE_MODEL = "/api/v2/projects/$project_id/models"
     BUILD_MODEL = "/api/v2/projects/$project_id/models/$model_id/builds"
     CREATE_APP = "/api/v2/projects/$project_id/applications"
     STOP_APP = "/api/v2/projects/$project_id/applications/$application_id:stop"
     CREATE_JOB = "/api/v2/projects/$project_id/jobs"
     UPDATE_JOB = "/api/v2/projects/$project_id/jobs/$job_id"
+    MODELS_LIST = "/api/v2/projects/$project_id/models"
+    JOBS_LIST = "/api/v2/projects/$project_id/jobs"
+    APPS_LIST = "/api/v2/projects/$project_id/applications"
     SEARCH_PROJECT = "/api/v2/projects?search_filter=$search_option&include_public_projects=true&page_size=100000"
     SEARCH_MODEL = "/api/v2/projects/$project_id/models?search_filter=$search_option&page_size=100000"
     SEARCH_JOB = "/api/v2/projects/$project_id/jobs?search_filter=$search_option&page_size=100000"
@@ -60,6 +66,12 @@ PROJECT_MAP = {
     "shared_memory_limit": "shared_memory_limit",
     "project_visibility": "visibility",
 }
+PROJECT_MAPV2 = {
+    "name": "name",
+    "description": "description",
+    "shared_memory_limit": "shared_memory_limit",
+    "visibility": "visibility",
+}
 
 MODEL_MAP = {
     "name": "name",
@@ -68,6 +80,12 @@ MODEL_MAP = {
     "latestModelBuild.comment": "comment",
     "latestModelBuild.targetFilePath": "file_path",
     "latestModelBuild.targetFunctionName": "function_name",
+}
+
+MODEL_MAPV2 = {
+    "comment": "comment",
+    "file_path": "file_path",
+    "function_name": "function_name",
 }
 
 APPLICATION_MAP = {

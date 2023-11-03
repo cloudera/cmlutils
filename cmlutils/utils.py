@@ -287,3 +287,35 @@ def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
     legacy_runtime_image_map["default"] = legacy_runtime_image_map["python3"]
 
     return legacy_runtime_image_map
+
+
+def compare_metadata(
+    import_data, export_data, import_data_list, export_data_list, skip_field=None
+):
+    if skip_field is None:
+        skip_field = []
+
+    data_list_diff = list(set(sorted(export_data_list)) - set(sorted(import_data_list)))
+    config_differences = {}
+
+    import_data_dict = {data["name"]: data for data in import_data}
+    export_data_dict = {data["name"]: data for data in export_data}
+
+    for name, im_data in import_data_dict.items():
+        ex_data = export_data_dict.get(name)
+
+        if ex_data is None:
+            continue
+
+        for key, value in im_data.items():
+            if key not in skip_field and ex_data.get(key) not in [value, None]:
+                config_differences[key] = (value, ex_data[key])
+
+    return data_list_diff, config_differences
+
+
+def update_verification_status(data_diff, message):
+    if data_diff:
+        logging.info("\033[31m❌ {} Not Successful\033[0m".format(message))
+    else:
+        logging.info("\033[32m✔ {} Successful \033[0m".format(message))

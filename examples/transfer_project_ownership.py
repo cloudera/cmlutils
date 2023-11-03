@@ -25,9 +25,13 @@ api = cmlapi.CMLServiceApi(client)
 # get details of the project you want to update and print current owner
 
 proj = api.get_project(projectId)
-print("================================================BEFORE===========================================")
+print(
+    "================================================BEFORE==========================================="
+)
 print(proj.owner.username)  # OWNER1 owns the project
-print("================================================================================================")
+print(
+    "================================================================================================"
+)
 
 # Update the project's ownership
 proj.owner.username = "OWNER2"
@@ -35,6 +39,10 @@ api.update_project(proj, projectId)
 
 # get details of the updated project
 projUpdated = api.get_project(projectId)
-print("================================================AFTER===========================================")
+print(
+    "================================================AFTER==========================================="
+)
 print(projUpdated.owner.username)  # onwer2 owns the project now
-print("================================================================================================")
+print(
+    "================================================================================================"
+)
