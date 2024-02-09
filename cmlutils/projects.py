@@ -610,7 +610,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
         logging.info("Exporting project metadata to path %s", filepath)
         project_info_resp = self.get_project_infov1()
         project_env = self.get_project_env()
-        project_env["CDSW_APP_POLLING_ENDPOINT"] = "."
+        if "CDSW_APP_POLLING_ENDPOINT" not in project_env:
+            project_env["CDSW_APP_POLLING_ENDPOINT"] = "."
         project_info_flatten = flatten_json_data(project_info_resp)
         project_metadata = extract_fields(project_info_flatten, constants.PROJECT_MAP)
 
