@@ -13,7 +13,6 @@ from cmlutils.constants import (
     API_V1_KEY,
     CA_PATH_KEY,
     OUTPUT_DIR_KEY,
-    TARGET_OWNER,
     URL_KEY,
     USERNAME_KEY,
 )
@@ -72,7 +71,6 @@ def _read_config_file(file_path: str, project_name: str):
                 print("Key %s is missing from config file." % (key))
                 raise
         output_config[CA_PATH_KEY] = config.get(project_name, CA_PATH_KEY, fallback="")
-        output_config[TARGET_OWNER] = config.get(project_name, TARGET_OWNER, fallback="")
         return output_config
     else:
         print("Validation error: cannot find config file:", file_path)
@@ -219,11 +217,10 @@ def project_import_cmd(project_name):
     apiv1_key = config[API_V1_KEY]
     local_directory = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
-    target_owner = config[TARGET_OWNER]
     local_directory = get_absolute_path(local_directory)
     ca_path = get_absolute_path(ca_path)
     log_filedir = os.path.join(local_directory, project_name, "logs")
-    
+
     _configure_project_command_logging(log_filedir, project_name)
     p = ProjectImporter(
         host=url,
@@ -243,7 +240,6 @@ def project_import_cmd(project_name):
             top_level_directory=local_directory,
             apiv1_key=apiv1_key,
             ca_path=ca_path,
-            target_owner=target_owner
         )
         logging.info("Begin validating for import.")
         for v in validators:
@@ -325,8 +321,6 @@ def project_import_cmd(project_name):
         end_time = time.time()
         import_file = log_filedir + constants.IMPORT_METRIC_FILE
         write_json_file(file_path=import_file, json_data=import_data)
-        if target_owner and target_owner != username:
-            pimport.transfer_ownership(proj_id=project_id, target_owner=target_owner)
         print(
             "{} Import took {:.2f} seconds".format(
                 project_name, (end_time - start_time)

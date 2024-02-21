@@ -122,25 +122,6 @@ class UserNameImportValidator(ImportValidators):
                     validation_status=ValidationResponseStatus.FAILED,
                 )
 
-class ImportFieldValidator(ImportValidators):
-    def __init__(
-        self, target_owner: str
-    ):
-        self.target_owner = target_owner
-        self.validation_name = "Check if field is present"
-    
-    def validate(self) -> ValidationResponse:
-        if self.target_owner:
-            return ValidationResponse(
-                    validation_name=self.validation_name,
-                    validation_msg="The target owner exists.",
-                    validation_status=ValidationResponseStatus.PASSED,
-            )
-        return ValidationResponse(
-                    validation_name=self.validation_name,
-                    validation_msg="target_owner is a mandatory field in the import-config.ini file. It should contain the username of the project owner in target workspace. If the owner is migrating the project, keep the field value the same as the username.",
-                    validation_status=ValidationResponseStatus.FAILED,
-                )
 
 class RsyncRuntimeAddonExistsImportValidator(ImportValidators):
     def __init__(
@@ -363,7 +344,6 @@ def initialize_import_validators(
     top_level_directory: str,
     apiv1_key: str,
     ca_path: str,
-    target_owner: str
 ) -> List[ImportValidators]:
     return [
         DirectoriesAndFilesValidator(
@@ -385,9 +365,6 @@ def initialize_import_validators(
             project_name=project_name,
             ca_path=ca_path,
         ),
-        ImportFieldValidator(
-            target_owner=target_owner
-        )
     ]
 
 

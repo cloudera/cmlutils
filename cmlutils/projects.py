@@ -36,6 +36,7 @@ from cmlutils.utils import (
 )
 
 
+
 def is_project_configured_with_runtimes(
     host: str,
     username: str,
@@ -610,8 +611,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         logging.info("Exporting project metadata to path %s", filepath)
         project_info_resp = self.get_project_infov1()
         project_env = self.get_project_env()
-        if "CDSW_APP_POLLING_ENDPOINT" not in project_env:
-            project_env["CDSW_APP_POLLING_ENDPOINT"] = "."
+        project_env["CDSW_APP_POLLING_ENDPOINT"] = "."
         project_info_flatten = flatten_json_data(project_info_resp)
         project_metadata = extract_fields(project_info_flatten, constants.PROJECT_MAP)
 
@@ -1695,13 +1695,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             model_details = self.get_models_detailv2(
                 proj_id=project_id, model_id=model_info_flatten["id"]
             )
-            model_metadata={}
-            if len(model_details["model_builds"]) > 0:
-                model_metadata = extract_fields(
-                    model_details["model_builds"][0], constants.MODEL_MAPV2
-                )
-                model_detail_data.update(model_metadata)
-            
+            model_metadata = extract_fields(
+                model_details["model_builds"][0], constants.MODEL_MAPV2
+            )
+            model_detail_data.update(model_metadata)
             model_name_list.append(model_info_flatten["name"])
             model_metadata_list.append(model_detail_data)
         self.metrics_data["total_model"] = len(model_name_list)
@@ -1724,23 +1721,3 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.metrics_data["total_application"] = len(app_name_list)
         self.metrics_data["application_name_list"] = sorted(app_name_list)
         return app_metadata_list, sorted(app_name_list)
-
-    def transfer_ownership(self, proj_id: str, target_owner: str):
-            endpoint = Template(ApiV2Endpoints.PATCH_PROJECT.value).substitute(
-                project_id=proj_id
-            )
-            json_data = {
-                "owner": {
-                    "username": target_owner
-                }
-            }
-            logging.info("Transfering the ownership of project to: %s", target_owner)
-            response = call_api_v2(
-                    host=self.host,
-                    endpoint=endpoint,
-                    method="PATCH",
-                    user_token=self.apiv2_key,
-                    json_data=json_data,
-                    ca_path=self.ca_path,
-                )
-            return
