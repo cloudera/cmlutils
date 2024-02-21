@@ -20,7 +20,6 @@ API_V1_KEY = "apiv1_key"
 OUTPUT_DIR_KEY = "output_dir"
 PROJECT_NAME_KEY = "project_name"
 CA_PATH_KEY = "ca_path"
-TARGET_OWNER = "target_owner"
 MAX_API_PAGE_LENGTH = 30
 
 
@@ -42,7 +41,6 @@ class ApiV2Endpoints(Enum):
     SEARCH_APP = "/api/v2/projects/$project_id/applications?search_filter=$search_option&page_size=100000"
     RUNTIME_ADDONS = "/api/v2/runtimeaddons?search_filter=$search_option"
     RUNTIMES = "/api/v2/runtimes?page_size=$page_size&page_token=$page_token"
-    PATCH_PROJECT= "/api/v2/projects/$project_id"
 
 
 class ApiV1Endpoints(Enum):
