@@ -747,6 +747,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
         job_name_list = []
         if len(job_list) == 0:
             logging.info("Jobs are not present in the project %s.", self.project_name)
+        else:
+            logging.info("Project {} has {} Jobs".format(self.project_name, len(job_list)))
         job_metadata_list = []
         for job in job_list:
             job_info_flatten = flatten_json_data(job)
@@ -760,6 +762,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
         model_name_list = []
         if len(model_list) == 0:
             logging.info("Models are not present in the project %s.", self.project_name)
+        else:
+            logging.info("Project {} has {} Models".format(self.project_name, len(model_list)))
         model_metadata_list = []
         for model in model_list:
             model_info_flatten = flatten_json_data(model)
@@ -775,6 +779,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
             logging.info(
                 "Applications are not present in the project %s.", self.project_name
             )
+        else:
+            logging.info("Project {} has {} Applications".format(self.project_name, len(app_list)))
         app_metadata_list = []
         for app in app_list:
             app_info_flatten = flatten_json_data(app)
@@ -874,7 +880,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         proj_data_raw = self.get_project_infov1()
         proj_info_flatten = flatten_json_data(proj_data_raw)
         proj_data = [extract_fields(proj_info_flatten, constants.PROJECT_MAP)]
-        proj_list = [self.project_slug.lower()]
+        proj_list = [self.project_name.lower()]
         if not proj_data[0].get("shared_memory_limit"):
             proj_data[0]["shared_memory_limit"] = 0
 
@@ -957,7 +963,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
                     return project["creator"]["username"], project["slug_raw"]
         return None
 
-    def transfer_project(self, log_filedir: str):
+    def transfer_project(self, log_filedir: str, verify=False):
+        result = None
         rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
             host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path
         )
@@ -991,7 +998,22 @@ class ProjectImporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             log_filedir=log_filedir,
         )
+        if verify:
+            result = verify_files(
+                sshport=port,
+                source=os.path.join(
+                    get_project_data_dir_path(
+                        top_level_dir=self.top_level_dir, project_name=self.project_name
+                    ),
+                    "",
+                ),
+                destination=constants.CDSW_PROJECTS_ROOT_DIR,
+                retry_limit=3,
+                project_name=self.project_name,
+                log_filedir=log_filedir,
+            )
         self.remove_cdswctl_dir(cdswctl_path)
+        return result
 
     def verify_project(self, log_filedir: str):
         rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
@@ -1670,6 +1692,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
         job_name_list = []
         if len(job_list) == 0:
             logging.info("Jobs are not present in the project %s.", self.project_name)
+        else:
+            logging.info("Project {} has {} Jobs".format(self.project_name, len(job_list)))
         job_metadata_list = []
         for job in job_list:
             job_info_flatten = flatten_json_data(job)
@@ -1685,6 +1709,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
         model_name_list = []
         if len(model_list) == 0:
             logging.info("Models are not present in the project %s.", self.project_name)
+        else:
+            logging.info("Project {} has {} Models".format(self.project_name, len(model_list)))
         model_metadata_list = []
         model_detail_data = {}
         for model in model_list:
@@ -1695,10 +1721,13 @@ class ProjectImporter(BaseWorkspaceInteractor):
             model_details = self.get_models_detailv2(
                 proj_id=project_id, model_id=model_info_flatten["id"]
             )
-            model_metadata = extract_fields(
-                model_details["model_builds"][0], constants.MODEL_MAPV2
-            )
-            model_detail_data.update(model_metadata)
+            model_metadata = {}
+            if len(model_details["model_builds"]) > 0:
+                model_metadata = extract_fields(
+                    model_details["model_builds"][0], constants.MODEL_MAPV2
+                )
+                model_detail_data.update(model_metadata)
+
             model_name_list.append(model_info_flatten["name"])
             model_metadata_list.append(model_detail_data)
         self.metrics_data["total_model"] = len(model_name_list)
@@ -1712,6 +1741,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
             logging.info(
                 "Applications are not present in the project %s.", self.project_name
             )
+        else:
+            logging.info("Project {} has {} Application".format(self.project_name, len(app_list)))
         app_metadata_list = []
         for app in app_list:
             app_info_flatten = flatten_json_data(app)
