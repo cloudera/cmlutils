@@ -943,6 +943,8 @@ def project_verify_cmd(project_csv):
                 write_json_file(file_path=import_file, json_data=validation_data)
                 if pimport:
                     pimport.terminate_ssh_session()
+                if pexport:
+                    pexport.terminate_ssh_session()
                 exit()
         except:
             logging.error("Exception:", exc_info=1)
@@ -950,6 +952,8 @@ def project_verify_cmd(project_csv):
             write_json_file(file_path=import_file, json_data=validation_data)
             if pexport:
                 pexport.terminate_ssh_session()
+            if pimport:
+                pimport.terminate_ssh_session()
             exit()
 
     print("\033[34m\tValidation of {} out of {} project are successful\033[0m".format(len(project_list)-len(failed_validation_list), len(project_list)))
