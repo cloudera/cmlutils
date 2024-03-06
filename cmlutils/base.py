@@ -6,7 +6,6 @@ from string import Template
 from cmlutils.constants import ApiV1Endpoints
 from cmlutils.utils import call_api_v1
 
-_apiv2_key = None
 
 
 class BaseWorkspaceInteractor(object):
@@ -28,9 +27,6 @@ class BaseWorkspaceInteractor(object):
 
     @property
     def apiv2_key(self) -> str:
-        global _apiv2_key
-        if _apiv2_key is not None:
-            return _apiv2_key
         endpoint = Template(ApiV1Endpoints.API_KEY.value).substitute(
             username=self.username
         )

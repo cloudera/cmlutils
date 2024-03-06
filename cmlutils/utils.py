@@ -327,6 +327,8 @@ def fetch_project_names_from_csv(csv_file):
     with open(csv_file, 'r') as file:
         reader = csv.reader(file)
         for row in reader:
-            for item in row:
-                names.append(item.strip())  # Add the value to the list after stripping whitespace
+            for project in row:
+                project = project.strip()  # Strip whitespace from the project name
+                if project:  # Check if project is not an empty string
+                    names.append(project)  # Add the value to the list
     return names
