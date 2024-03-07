@@ -240,8 +240,9 @@ def verify_files(
             filtered_list = [
                 file
                 for file in file_list
-                if (file != "" and ".local" not in file and ".cache" not in file)
-            ]
+                if (file != "" and
+                    not file.startswith('.'))
+                 ]
             return filtered_list
         logging.warning("Got non zero return code. Retrying...")
     if result.returncode != 0:
