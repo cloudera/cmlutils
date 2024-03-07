@@ -320,15 +320,3 @@ def update_verification_status(data_diff, message):
         logging.info("\033[31m❌ {} Not Successful\033[0m".format(message))
     else:
         logging.info("\033[32m✔ {} Successful \033[0m".format(message))
-
-
-def fetch_project_names_from_csv(csv_file):
-    names = []
-    with open(csv_file, 'r') as file:
-        reader = csv.reader(file)
-        for row in reader:
-            for project in row:
-                project = project.strip()  # Strip whitespace from the project name
-                if project:  # Check if project is not an empty string
-                    names.append(project)  # Add the value to the list
-    return names
