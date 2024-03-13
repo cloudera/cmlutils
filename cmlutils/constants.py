@@ -104,6 +104,22 @@ APPLICATION_MAP = {
     "script": "script",
     "subdomain": "subdomain",
 }
+APPLICATION_MAPV2 = {
+    "bypass_authentication": "bypass_authentication",
+    "cpu": "cpu",
+    "description": "description",
+    "environment": "environment",
+    "memory": "memory",
+    "name": "name",
+    "nvidiaGpu": "nvidia_gpu",
+    "runtime.kernel": "runtime_kernel",
+    "runtime.editor": "runtime_editor",
+    "runtime.edition": "runtime_edition",
+    "runtime.shortVersion": "runtime_shortversion",
+    "runtime.fullVersion": "runtime_fullversion",
+    "script": "script",
+    "subdomain": "subdomain",
+}
 
 JOB_MAP = {
     "arguments": "arguments",

@@ -483,7 +483,7 @@ def project_import_cmd(project_name, verify):
                 logging.info(
                     "Project {} found in source and destination ".format(project_name)
                     if not proj_diff
-                    else "Project {} Not Found in source and destination".format(
+                    else "Project {} Not Found in source or destination".format(
                         project_name
                     )
                 )
@@ -512,7 +512,7 @@ def project_import_cmd(project_name, verify):
                         app_diff
                     )
                     if not app_diff
-                    else "Application {} Not Found in source and destination".format(
+                    else "Application {} Not Found in source or destination".format(
                         app_diff
                     )
                 )
@@ -540,7 +540,7 @@ def project_import_cmd(project_name, verify):
                         model_diff
                     )
                     if not model_diff
-                    else "Model {} Not Found in source and destination".format(model_diff)
+                    else "Model {} Not Found in source or destination".format(model_diff)
                 )
                 logging.info(
                     "No Model Config Difference Found"
@@ -567,7 +567,7 @@ def project_import_cmd(project_name, verify):
                         job_diff
                     )
                     if not job_diff
-                    else "Job {} Not Found in source and destination".format(job_diff)
+                    else "Job {} Not Found in source or destination".format(job_diff)
                 )
                 logging.info(
                     "No Job Config Difference Found"
@@ -829,7 +829,7 @@ def project_verify_cmd(project_name):
             logging.info(
                 "Project {} found in source and destination ".format(project_name)
                 if not proj_diff
-                else "Project {} Not Found in source and destination".format(
+                else "Project {} Not Found in source or destination".format(
                     project_name
                 )
             )
@@ -858,7 +858,7 @@ def project_verify_cmd(project_name):
                     app_diff
                 )
                 if not app_diff
-                else "Application {} Not Found in source and destination".format(
+                else "Application {} Not Found in source or destination".format(
                     app_diff
                 )
             )
@@ -886,7 +886,7 @@ def project_verify_cmd(project_name):
                     model_diff
                 )
                 if not model_diff
-                else "Model {} Not Found in source and destination".format(model_diff)
+                else "Model {} Not Found in source or destination".format(model_diff)
             )
             logging.info(
                 "No Model Config Difference Found"
@@ -913,7 +913,7 @@ def project_verify_cmd(project_name):
                     job_diff
                 )
                 if not job_diff
-                else "Job {} Not Found in source and destination".format(job_diff)
+                else "Job {} Not Found in source or destination".format(job_diff)
             )
             logging.info(
                 "No Job Config Difference Found"
