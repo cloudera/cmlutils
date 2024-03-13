@@ -1719,7 +1719,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             model_info_flatten = flatten_json_data(model)
             model_detail_data["name"] = model_info_flatten["name"]
             model_detail_data["description"] = model_info_flatten["description"]
-            model_detail_data["auth_enabled"] = model_info_flatten["auth_enabled"]
+            model_detail_data["disable_authentication"] = model_info_flatten["auth_enabled"] if isinstance(model_info_flatten["auth_enabled"], bool) else model_info_flatten["auth_enabled"]
             model_details = self.get_models_detailv2(
                 proj_id=project_id, model_id=model_info_flatten["id"]
             )
@@ -1748,7 +1748,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
         app_metadata_list = []
         for app in app_list:
             app_info_flatten = flatten_json_data(app)
-            app_metadata = extract_fields(app_info_flatten, constants.APPLICATION_MAP)
+            app_metadata = extract_fields(app_info_flatten, constants.APPLICATION_MAPV2)
             app_name_list.append(app_metadata["name"])
             app_metadata_list.append(app_metadata)
         self.metrics_data["total_application"] = len(app_name_list)

@@ -309,9 +309,15 @@ def compare_metadata(
             continue
 
         for key, value in im_data.items():
-            if key not in skip_field and ex_data.get(key) not in [value, None]:
-                config_differences[key] = (value, ex_data[key])
-
+            if key not in skip_field:
+                ex_value = ex_data.get(key)
+                if ex_value is not None and str(ex_value) != str(value):
+                    difference = ["{} value in destination is {}, and source is {}".format(
+                        key, str(value), str(ex_value))]
+                    if config_differences.get(name):
+                        config_differences[name].extend(difference)
+                    else:
+                        config_differences[name]= difference
     return data_list_diff, config_differences
 
 
