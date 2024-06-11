@@ -32,8 +32,8 @@ def open_ssh_endpoint(
     else:
         arr = line.split(" ")
         if len(arr) <= 3 or (not arr[3].isdigit()):
-            logging.error(ssh_call.stdout.readlines())
-            logging.error("SSH connection failed")
-            raise Exception("SSH connection failed")
+            logging.error("SSH connection failed unexpectedly: " + line)
+            logging.error(*ssh_call.stderr.readlines())
+            raise Exception("SSH connection failed unexpectedly")
         logging.info("SSH connection successfull")
         return ssh_call, int(arr[3])
