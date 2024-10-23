@@ -85,6 +85,13 @@ def project_cmd():
     """
 
 
+@click.group(name="experimental")
+def experimental_cmd():
+    """
+    Sub-entrypoint for WIP/Experimental commands
+    """
+
+
 @project_cmd.command(name="export")
 @click.option(
     "--project_name",
@@ -92,10 +99,17 @@ def project_cmd():
     help="Name of the project to be migrated. Make sure the name matches with the section name in export-config.ini file",
     required=True,
 )
-def project_export_cmd(project_name):
+@click.option(
+    "--ini_location",
+    "-l",
+    default="/.cmlutils/export-config.ini",
+    show_default=True,
+    help="filepath of the export-config.ini file. default is <home-dir>/.cmlutils/export-config.ini",
+)
+def project_export_cmd(project_name, ini_location):
     pexport = None
     config = _read_config_file(
-        os.path.expanduser("~") + "/.cmlutils/export-config.ini", project_name
+        os.path.expanduser("~") + ini_location, project_name
     )
 
     username = config[USERNAME_KEY]
@@ -208,16 +222,23 @@ def project_export_cmd(project_name):
     required=True,
 )
 @click.option(
+    "--ini_location",
+    "-l",
+    default="/.cmlutils/import-config.ini",
+    show_default=True,
+    help="filepath of the import-config.ini file. default is <home-dir>/.cmlutils/import-config.ini",
+)
+@click.option(
     "--verify",
     "-v",
-    is_flag=True,
+    is_flag=False,
     help="Flag to automatically trigger migration validation after import.",
 )
-def project_import_cmd(project_name, verify):
+def project_import_cmd(project_name, ini_location, verify=False):
     pimport = None
     import_diff_file_list = None
     config = _read_config_file(
-        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name
+        os.path.expanduser("~") + ini_location, project_name
     )
 
     username = config[USERNAME_KEY]
@@ -299,10 +320,9 @@ def project_import_cmd(project_name, verify):
         )
         start_time = time.time()
         if verify:
-            import_diff_file_list=pimport.transfer_project(log_filedir=log_filedir, verify=True)
+            import_diff_file_list = pimport.transfer_project(log_filedir=log_filedir, verify=True)
         else:
             pimport.transfer_project(log_filedir=log_filedir)
-
 
         if uses_engine:
             proj_patch_metadata = {"default_project_engine_type": "legacy_engine"}
@@ -340,7 +360,9 @@ def project_import_cmd(project_name, verify):
         pimport.terminate_ssh_session()
         # If verification is also needed after import
         if verify:
-            print("***************************************************** Started verifying migration for project: {} ***************************************************** ".format(project_name))
+            print(
+                "***************************************************** Started verifying migration for project: {} ***************************************************** ".format(
+                    project_name))
             (
                 imported_project_data,
                 imported_project_list,
@@ -578,8 +600,9 @@ def project_import_cmd(project_name, verify):
                     True if (job_diff or job_config_diff) else False,
                     message="Job Verification",
                 )
-                result = [export_diff_file_list,import_diff_file_list,proj_diff,
-                          proj_config_diff,app_diff,app_config_diff,model_diff,model_config_diff,job_diff, job_config_diff]
+                result = [export_diff_file_list, import_diff_file_list, proj_diff,
+                          proj_config_diff, app_diff, app_config_diff, model_diff, model_config_diff, job_diff,
+                          job_config_diff]
                 migration_status = all(not sublist for sublist in result)
                 validation_data["isMigrationSuccessful"] = migration_status
                 update_verification_status(
@@ -612,12 +635,28 @@ def project_import_cmd(project_name, verify):
     help="Name of project migrated. Make sure the name matches with the section name in import-config.ini and export-config.ini file",
     required=True,
 )
-def project_verify_cmd(project_name):
+@click.option(
+    "--export_ini_location",
+    "-el",
+    default="/.cmlutils/export-config.ini",
+    show_default=True,
+    help="filepath of the export-config.ini file. default is <home-dir>/.cmlutils/export-config.ini",
+)
+@click.option(
+    "--import_ini_location",
+    "-il",
+    default="/.cmlutils/import-config.ini",
+    show_default=True,
+    help="filepath of the import-config.ini file. default is <home-dir>/.cmlutils/import-config.ini",
+)
+def project_verify_cmd(project_name, export_ini_location, import_ini_location):
+
     pexport = None
     validation_data = dict()
     config = _read_config_file(
-        os.path.expanduser("~") + "/.cmlutils/export-config.ini", project_name
+        os.path.expanduser("~") + export_ini_location, project_name
     )
+
 
     export_username = config[USERNAME_KEY]
     export_url = config[URL_KEY]
@@ -709,7 +748,7 @@ def project_verify_cmd(project_name):
         pexport.terminate_ssh_session()
         pimport = None
         import_config = _read_config_file(
-            os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name
+            os.path.expanduser("~") + import_ini_location, project_name
         )
 
         import_username = import_config[USERNAME_KEY]
@@ -742,8 +781,8 @@ def project_verify_cmd(project_name):
             for v in validators:
                 validation_response = v.validate()
                 if (
-                    validation_response.validation_status
-                    == ValidationResponseStatus.FAILED
+                        validation_response.validation_status
+                        == ValidationResponseStatus.FAILED
                 ):
                     logging.error(
                         "Validation error for project %s: %s",
@@ -924,8 +963,9 @@ def project_verify_cmd(project_name):
                 True if (job_diff or job_config_diff) else False,
                 message="Job Verification",
             )
-            result = [export_diff_file_list,import_diff_file_list,proj_diff,
-                      proj_config_diff,app_diff,app_config_diff,model_diff,model_config_diff,job_diff, job_config_diff]
+            result = [export_diff_file_list, import_diff_file_list, proj_diff,
+                      proj_config_diff, app_diff, app_config_diff, model_diff, model_config_diff, job_diff,
+                      job_config_diff]
             migration_status = all(not sublist for sublist in result)
             update_verification_status(
                 not migration_status,
@@ -961,11 +1001,18 @@ def project_helpers_cmd():
     """
 
 
+@click.option(
+    "--ini_location",
+    "-l",
+    default="/.cmlutils/import-config.ini",
+    show_default=True,
+    help="filepath of the import-config.ini file. default is <home-dir>/.cmlutils/import-config.ini",
+)
 @project_helpers_cmd.command("populate_engine_runtimes_mapping")
-def populate_engine_runtimes_mapping():
+def populate_engine_runtimes_mapping(ini_location):
     project_name = "DEFAULT"
     config = _read_config_file(
-        os.path.expanduser("~") + "/.cmlutils/import-config.ini", project_name
+        os.path.expanduser("~") + ini_location, project_name
     )
 
     username = config[USERNAME_KEY]
@@ -1020,10 +1067,10 @@ def populate_engine_runtimes_mapping():
     # Please make sure utility is having necessary permissions to write/overwrite data
     try:
         with open(
-            os.path.expanduser("~")
-            + "/.cmlutils/"
-            + "legacy_engine_runtime_constants.json",
-            "w",
+                os.path.expanduser("~")
+                + "/.cmlutils/"
+                + "legacy_engine_runtime_constants.json",
+                "w",
         ) as legacy_engine_runtime_constants:
             dump(legacy_runtime_image_map, legacy_engine_runtime_constants)
     except:
