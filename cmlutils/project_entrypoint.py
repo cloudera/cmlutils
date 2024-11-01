@@ -22,11 +22,12 @@ from cmlutils.projects import ProjectExporter, ProjectImporter
 from cmlutils.script_models import ValidationResponseStatus
 from cmlutils.utils import (
     compare_metadata,
+    compare_collaborator_metadata,
     get_absolute_path,
     parse_runtimes_v2,
     read_json_file,
     update_verification_status,
-    write_json_file
+    write_json_file,
 )
 from cmlutils.validator import (
     initialize_export_validators,
@@ -122,7 +123,9 @@ def project_export_cmd(project_name):
             project_slug=project_name,
             owner_type="",
         )
-        creator_username, project_slug, owner_type = pobj.get_creator_username()
+        creator_username, project_slug, owner_type, public_id = (
+            pobj.get_creator_username()
+        )
         if creator_username is None:
             logging.error(
                 "Validation error: Cannot find project - %s under username %s",
@@ -167,6 +170,7 @@ def project_export_cmd(project_name):
         )
         start_time = time.time()
         pexport.transfer_project_files(log_filedir=log_filedir)
+        pexport.set_project_public_id(public_id=public_id)
         exported_data = pexport.dump_project_and_related_metadata()
         print("\033[32m✔ Export of Project {} Successful \033[0m".format(project_name))
         print(
@@ -183,6 +187,12 @@ def project_export_cmd(project_name):
             "\033[34m\tExported {} Applications {}\033[0m".format(
                 exported_data.get("total_application"),
                 exported_data.get("application_name_list"),
+            )
+        )
+        print(
+            "\033[34m\tExported {} Collaborators {}\033[0m".format(
+                exported_data.get("total_collaborators"),
+                exported_data.get("collaborator_list"),
             )
         )
         end_time = time.time()
@@ -299,10 +309,11 @@ def project_import_cmd(project_name, verify):
         )
         start_time = time.time()
         if verify:
-            import_diff_file_list=pimport.transfer_project(log_filedir=log_filedir, verify=True)
+            import_diff_file_list = pimport.transfer_project(
+                log_filedir=log_filedir, verify=True
+            )
         else:
             pimport.transfer_project(log_filedir=log_filedir)
-
 
         if uses_engine:
             proj_patch_metadata = {"default_project_engine_type": "legacy_engine"}
@@ -329,6 +340,12 @@ def project_import_cmd(project_name, verify):
                 import_data.get("application_name_list"),
             )
         )
+        print(
+            "\033[34m\tImported {} Collaborators {}\033[0m".format(
+                import_data.get("total_collaborators"),
+                import_data.get("collaborator_list"),
+            )
+        )
         end_time = time.time()
         import_file = log_filedir + constants.IMPORT_METRIC_FILE
         write_json_file(file_path=import_file, json_data=import_data)
@@ -340,7 +357,11 @@ def project_import_cmd(project_name, verify):
         pimport.terminate_ssh_session()
         # If verification is also needed after import
         if verify:
-            print("***************************************************** Started verifying migration for project: {} ***************************************************** ".format(project_name))
+            print(
+                "***************************************************** Started verifying migration for project: {} ***************************************************** ".format(
+                    project_name
+                )
+            )
             (
                 imported_project_data,
                 imported_project_list,
@@ -350,6 +371,8 @@ def project_import_cmd(project_name, verify):
                 imported_app_list,
                 imported_job_data,
                 imported_job_list,
+                imported_collaborator_data,
+                imported_collaborator_list,
             ) = pimport.collect_imported_project_data(project_id=project_id)
             # import_diff_file_list = pimport.verify_project(log_filedir=log_filedir)
 
@@ -372,7 +395,7 @@ def project_import_cmd(project_name, verify):
             _configure_project_command_logging(log_filedir, project_name)
 
             import_file = log_filedir + constants.IMPORT_METRIC_FILE
-            with open(import_file, 'r') as file:
+            with open(import_file, "r") as file:
                 validation_data = json.load(file)
             try:
                 # Get username of the creator of project - This is required so that admins can also migrate the project
@@ -386,11 +409,9 @@ def project_import_cmd(project_name, verify):
                     project_slug=project_name,
                     owner_type="",
                 )
-                (
-                    export_creator_username,
-                    export_project_slug,
-                    export_owner_type,
-                ) = pobj.get_creator_username()
+                (export_creator_username, export_project_slug, export_owner_type, _) = (
+                    pobj.get_creator_username()
+                )
                 if export_creator_username is None:
                     logging.error(
                         "Validation error: Cannot find project - %s under username %s",
@@ -410,7 +431,10 @@ def project_import_cmd(project_name, verify):
                 )
                 for v in validators:
                     validation_response = v.validate()
-                    if validation_response.validation_status == ValidationResponseStatus.FAILED:
+                    if (
+                        validation_response.validation_status
+                        == ValidationResponseStatus.FAILED
+                    ):
                         logging.error(
                             "Validation error: %s",
                             project_name,
@@ -442,6 +466,8 @@ def project_import_cmd(project_name, verify):
                     exported_app_list,
                     exported_job_data,
                     exported_job_list,
+                    exported_collaborator_data,
+                    exported_collaborator_list,
                 ) = pexport.collect_export_project_data()
 
                 # File verification
@@ -506,7 +532,9 @@ def project_import_cmd(project_name, verify):
                     skip_field=["environment"],
                 )
                 logging.info("Source Application list {}".format(exported_app_list))
-                logging.info("Destination Application list {}".format(imported_app_list))
+                logging.info(
+                    "Destination Application list {}".format(imported_app_list)
+                )
                 logging.info(
                     "All Application in source project is present at destination project ".format(
                         app_diff
@@ -540,7 +568,9 @@ def project_import_cmd(project_name, verify):
                         model_diff
                     )
                     if not model_diff
-                    else "Model {} Not Found in source or destination".format(model_diff)
+                    else "Model {} Not Found in source or destination".format(
+                        model_diff
+                    )
                 )
                 logging.info(
                     "No Model Config Difference Found"
@@ -578,13 +608,66 @@ def project_import_cmd(project_name, verify):
                     True if (job_diff or job_config_diff) else False,
                     message="Job Verification",
                 )
-                result = [export_diff_file_list,import_diff_file_list,proj_diff,
-                          proj_config_diff,app_diff,app_config_diff,model_diff,model_config_diff,job_diff, job_config_diff]
+
+                # Collaborators verification
+                collaborator_diff, collaborator_config_diff = (
+                    compare_collaborator_metadata(
+                        imported_collaborator_data,
+                        exported_collaborator_data,
+                        imported_collaborator_list,
+                        exported_collaborator_list,
+                        skip_field=None,
+                    )
+                )
+                logging.info(
+                    "Source collaborator list {}".format(exported_collaborator_list)
+                )
+                logging.info(
+                    "Destination collaborator list {}".format(
+                        imported_collaborator_list
+                    )
+                )
+                logging.info(
+                    "All collaborators in source project is present at destination project ".format(
+                        collaborator_diff
+                    )
+                    if not collaborator_diff
+                    else "collaborator {} Not Found in source or destination".format(
+                        collaborator_diff
+                    )
+                )
+                logging.info(
+                    "No collaborator Config Difference Found"
+                    if not collaborator_config_diff
+                    else "Difference in collaborator Config {}".format(
+                        collaborator_config_diff
+                    )
+                )
+                update_verification_status(
+                    True if (collaborator_diff or collaborator_config_diff) else False,
+                    message="Collaborator Verification",
+                )
+                result = [
+                    export_diff_file_list,
+                    import_diff_file_list,
+                    proj_diff,
+                    proj_config_diff,
+                    app_diff,
+                    app_config_diff,
+                    model_diff,
+                    model_config_diff,
+                    job_diff,
+                    job_config_diff,
+                    collaborator_diff,
+                    collaborator_config_diff,
+                ]
                 migration_status = all(not sublist for sublist in result)
                 validation_data["isMigrationSuccessful"] = migration_status
                 update_verification_status(
                     not migration_status,
-                    message="Migration Validation status for project : {} is".format(project_name),
+                    message="Migration Validation status for project : {} is".format(
+                        project_name
+                    ),
                 )
                 write_json_file(file_path=import_file, json_data=validation_data)
 
@@ -633,7 +716,7 @@ def project_verify_cmd(project_name):
     logging.info("Started Verifying project: %s", project_name)
     import_file = log_filedir + constants.IMPORT_METRIC_FILE
     try:
-        with open(import_file, 'r') as file:
+        with open(import_file, "r") as file:
             validation_data = json.load(file)
     except:
         logging.error("File not found Exception: ", exc_info=1)
@@ -649,11 +732,9 @@ def project_verify_cmd(project_name):
             project_slug=project_name,
             owner_type="",
         )
-        (
-            export_creator_username,
-            export_project_slug,
-            export_owner_type,
-        ) = pobj.get_creator_username()
+        (export_creator_username, export_project_slug, export_owner_type, _) = (
+            pobj.get_creator_username()
+        )
         if export_creator_username is None:
             logging.error(
                 "Validation error: Cannot find project - %s under username %s",
@@ -705,6 +786,8 @@ def project_verify_cmd(project_name):
             exported_app_list,
             exported_job_data,
             exported_job_list,
+            exported_collaborator_data,
+            exported_collaborator_list,
         ) = pexport.collect_export_project_data()
         pexport.terminate_ssh_session()
         pimport = None
@@ -786,6 +869,8 @@ def project_verify_cmd(project_name):
                 imported_app_list,
                 imported_job_data,
                 imported_job_list,
+                imported_collaborator_data,
+                imported_collaborator_list,
             ) = pimport.collect_imported_project_data(project_id=project_id)
 
             # File verification
@@ -924,12 +1009,73 @@ def project_verify_cmd(project_name):
                 True if (job_diff or job_config_diff) else False,
                 message="Job Verification",
             )
-            result = [export_diff_file_list,import_diff_file_list,proj_diff,
-                      proj_config_diff,app_diff,app_config_diff,model_diff,model_config_diff,job_diff, job_config_diff]
+            result = [
+                export_diff_file_list,
+                import_diff_file_list,
+                proj_diff,
+                proj_config_diff,
+                app_diff,
+                app_config_diff,
+                model_diff,
+                model_config_diff,
+                job_diff,
+                job_config_diff,
+            ]
+
+            # Collaborators verification
+            collaborator_diff, collaborator_config_diff = compare_collaborator_metadata(
+                imported_collaborator_data,
+                exported_collaborator_data,
+                imported_collaborator_list,
+                exported_collaborator_list,
+                skip_field=None,
+            )
+            logging.info(
+                "Source collaborator list {}".format(exported_collaborator_list)
+            )
+            logging.info(
+                "Destination collaborator list {}".format(imported_collaborator_list)
+            )
+            logging.info(
+                "All collaborators in source project is present at destination project ".format(
+                    collaborator_diff
+                )
+                if not collaborator_diff
+                else "collaborator {} Not Found in source or destination".format(
+                    collaborator_diff
+                )
+            )
+            logging.info(
+                "No collaborator Config Difference Found"
+                if not collaborator_config_diff
+                else "Difference in collaborator Config {}".format(
+                    collaborator_config_diff
+                )
+            )
+            update_verification_status(
+                True if (collaborator_diff or collaborator_config_diff) else False,
+                message="Collaborator Verification",
+            )
+            result = [
+                export_diff_file_list,
+                import_diff_file_list,
+                proj_diff,
+                proj_config_diff,
+                app_diff,
+                app_config_diff,
+                model_diff,
+                model_config_diff,
+                job_diff,
+                job_config_diff,
+                collaborator_diff,
+                collaborator_config_diff,
+            ]
             migration_status = all(not sublist for sublist in result)
             update_verification_status(
                 not migration_status,
-                message="Migration Validation status for project : {} is".format(project_name),
+                message="Migration Validation status for project : {} is".format(
+                    project_name
+                ),
             )
             validation_data["isMigrationSuccessful"] = migration_status
             write_json_file(file_path=import_file, json_data=validation_data)
