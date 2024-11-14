@@ -16,6 +16,11 @@ def get_project_metadata_file_path(top_level_dir: str, project_name: str) -> str
         "project-metadata.json",
     )
 
+def get_project_collaborators_file_path(top_level_dir: str, project_name: str) -> str:
+    return os.path.join(
+        get_project_metadata_dir_path(top_level_dir, project_name),
+        "project-collaborators.json",
+    )
 
 def get_models_metadata_file_path(top_level_dir: str, project_name: str) -> str:
     return os.path.join(

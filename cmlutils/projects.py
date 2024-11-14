@@ -22,6 +22,7 @@ from cmlutils.directory_utils import (
     get_models_metadata_file_path,
     get_project_data_dir_path,
     get_project_metadata_file_path,
+    get_project_collaborators_file_path
 )
 from cmlutils.ssh import open_ssh_endpoint
 from cmlutils.utils import (
@@ -287,6 +288,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         self.owner_type = owner_type
         super().__init__(host, username, project_name, api_key, ca_path, project_slug)
         self.metrics_data = dict()
+        self.project_public_id = None
 
     # Get CDSW project info using API v1
     def get_project_infov1(self):
@@ -339,10 +341,10 @@ class ProjectExporter(BaseWorkspaceInteractor):
             )
 
             """
-            End loop            
-            a. If response len is less than MAX_API_PAGE_LENGTH 
+            End loop
+            a. If response len is less than MAX_API_PAGE_LENGTH
                 => Possible if less number of records
-                => Possible if response is [] => len 0             
+                => Possible if response is [] => len 0
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
             c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
             """
@@ -364,14 +366,16 @@ class ProjectExporter(BaseWorkspaceInteractor):
                             project["owner"]["username"],
                             project["slug_raw"],
                             constants.ORGANIZATION_TYPE,
+                            project["public_identifier"],
                         )
                     else:
                         return (
                             project["creator"]["username"],
                             project["slug_raw"],
                             constants.USER_TYPE,
+                            project["public_identifier"],
                         )
-        return None, None, None
+        return None, None, None, None
 
     # Get all models list info using API v1
     def get_models_listv1(self, project_id: int):
@@ -436,6 +440,9 @@ class ProjectExporter(BaseWorkspaceInteractor):
             ca_path=self.ca_path,
         )
         return response.json()
+
+    def set_project_public_id(self, public_id: str):
+        self.project_public_id = public_id
 
     # Get Job info using API v1
     def get_job_infov1(self, job_id: int):
@@ -605,6 +612,25 @@ class ProjectExporter(BaseWorkspaceInteractor):
         self.terminate_ssh_session()
         return result
 
+    def get_project_collaborators_v2(self, page_token: str, project_id: str):
+        endpoint = Template(ApiV2Endpoints.COLLABORATORS.value).substitute(
+            page_size=constants.MAX_API_PAGE_LENGTH,
+            page_token=page_token,
+            project_id=project_id,
+        )
+
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        result_list = response.json()
+        if result_list:
+            return result_list
+        return None
+
     def _export_project_metadata(self):
         filepath = get_project_metadata_file_path(
             top_level_dir=self.top_level_dir, project_name=self.project_name
@@ -637,6 +663,32 @@ class ProjectExporter(BaseWorkspaceInteractor):
             )
         self.project_id = project_info_resp["id"]
         write_json_file(file_path=filepath, json_data=project_metadata)
+
+    def _export_project_collaborators(self):
+        filepath = get_project_collaborators_file_path(
+            top_level_dir=self.top_level_dir, project_name=self.project_name
+        )
+        logging.info("Exporting project collaborators to path %s", filepath)
+        project_collaborators_resp = self.get_project_collaborators_v2(
+            project_id=self.project_public_id, page_token=""
+        )
+        project_collaborators_new = {"collaborators": []}
+
+        usernames = []
+
+        for collaborator in project_collaborators_resp["collaborators"]:
+            collaborator_entry = {
+                "permission": collaborator["permission"],
+                "username": collaborator["user"]["username"],
+            }
+            project_collaborators_new["collaborators"].append(collaborator_entry)
+            usernames.append(collaborator["user"]["username"])
+
+        self.metrics_data["total_collaborators"] = len(
+            project_collaborators_new["collaborators"]
+        )
+        self.metrics_data["collaborator_list"] = sorted(usernames)
+        write_json_file(file_path=filepath, json_data=project_collaborators_new)
 
     def _export_models_metadata(self):
         filepath = get_models_metadata_file_path(
@@ -794,6 +846,29 @@ class ProjectExporter(BaseWorkspaceInteractor):
             app_metadata_list.append(app_metadata)
         return app_metadata_list, sorted(app_name_list)
 
+    def collect_export_collaborator_list(self, project_id):
+        project_collaborators_resp = self.get_project_collaborators_v2(
+            project_id=project_id, page_token=""
+        )
+        project_collaborators_new = {"collaborators": []}
+
+        usernames = []
+
+        for collaborator in project_collaborators_resp["collaborators"]:
+            collaborator_entry = {
+                "permission": collaborator["permission"],
+                "username": collaborator["user"]["username"],
+            }
+            project_collaborators_new["collaborators"].append(collaborator_entry)
+            usernames.append(collaborator["user"]["username"])
+
+        self.metrics_data["total_collaborators"] = len(
+            project_collaborators_new["collaborators"]
+        )
+        self.metrics_data["collaborator_list"] = sorted(usernames)
+
+        return project_collaborators_new["collaborators"], sorted(usernames)
+
     def _export_job_metadata(self):
         filepath = get_jobs_metadata_file_path(
             top_level_dir=self.top_level_dir, project_name=self.project_name
@@ -876,6 +951,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         self._export_models_metadata()
         self._export_application_metadata()
         self._export_job_metadata()
+        self._export_project_collaborators()
         return self.metrics_data
 
     def collect_export_project_data(self):
@@ -891,6 +967,9 @@ class ProjectExporter(BaseWorkspaceInteractor):
         )
         app_data, app_list = self.collect_export_application_list()
         job_data, job_list = self.collect_export_job_list()
+        collaborators_data, collaborators_list = self.collect_export_collaborator_list(
+            proj_data_raw["public_identifier"]
+        )
         return (
             proj_data,
             proj_list,
@@ -900,6 +979,8 @@ class ProjectExporter(BaseWorkspaceInteractor):
             app_list,
             job_data,
             job_list,
+            collaborators_data,
+            collaborators_list,
         )
 
 
@@ -942,10 +1023,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             )
 
             """
-            End loop           
-            a. If response len is less than MAX_API_PAGE_LENGTH 
+            End loop
+            a. If response len is less than MAX_API_PAGE_LENGTH
                 => Possible if less number of records
-                => Possible if response is [] => len 0             
+                => Possible if response is [] => len 0
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
             c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
             """
@@ -1129,6 +1210,22 @@ class ProjectImporter(BaseWorkspaceInteractor):
             ca_path=self.ca_path,
         )
         return
+
+    def add_proj_collaborator_v2(self, proj_id: str, user_name: str, metadata):
+        try:
+            endpoint = Template(ApiV2Endpoints.ADD_COLLABORATOR.value).substitute(
+                project_id=proj_id, user_name=user_name
+            )
+            call_api_v2(
+                host=self.host,
+                endpoint=endpoint,
+                method="PUT",
+                user_token=self.apiv2_key,
+                json_data=metadata,
+                ca_path=self.ca_path,
+            )
+        except KeyError as e:
+            raise
 
     def create_application_v2(self, proj_id: str, app_metadata) -> str:
         try:
@@ -1420,10 +1517,18 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.create_paused_jobs(
             project_id=project_id, job_metadata_filepath=job_metadata_filepath
         )
+        proj_collaborator_filepath = get_project_collaborators_file_path(
+            top_level_dir=self.top_level_dir, project_name=self.project_name
+        )
+        self.add_project_collaborators(
+            project_id=project_id,
+            collaborator_metadata_filepath=proj_collaborator_filepath,
+        )
         self.get_project_infov2(proj_id=project_id)
         self.collect_import_model_list(project_id=project_id)
         self.collect_import_application_list(project_id=project_id)
         self.collect_import_job_list(project_id=project_id)
+        self.collect_import_collaborator_list(project_id=project_id)
         return self.metrics_data
 
     def collect_imported_project_data(self, project_id: str):
@@ -1438,6 +1543,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
         model_data, model_list = self.collect_import_model_list(project_id=project_id)
         app_data, app_list = self.collect_import_application_list(project_id=project_id)
         job_data, job_list = self.collect_import_job_list(project_id=project_id)
+        collaborator_data, collaborators = self.collect_import_collaborator_list(project_id=project_id)
         return (
             proj_data,
             proj_list,
@@ -1447,6 +1553,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
             app_list,
             job_data,
             job_list,
+            collaborator_data,
+            collaborators,
         )
 
     def create_models(self, project_id: str, models_metadata_filepath: str):
@@ -1588,6 +1696,38 @@ class ProjectImporter(BaseWorkspaceInteractor):
             logging.error(f"Error: {e}")
             raise
 
+    def add_project_collaborators(
+        self, project_id: str, collaborator_metadata_filepath: str
+    ):
+        try:
+            collaborator_metadata = read_json_file(collaborator_metadata_filepath)
+            collaborator_metadata_list = collaborator_metadata.get("collaborators")
+
+            if collaborator_metadata_list != None:
+                for collaborator_metadata in collaborator_metadata_list:
+                    try:
+                        self.add_proj_collaborator_v2(
+                            proj_id=project_id,
+                            user_name=collaborator_metadata["username"],
+                            metadata=collaborator_metadata,
+                        )
+                    except Exception as e:
+                        logging.error(
+                            f"Failed to add collaborator {collaborator_metadata['username']}. Error: {e}"
+                        )
+                    else:
+                        logging.info(
+                            f"{collaborator_metadata['username']} has been added successfully as a collaborator."
+                        )
+            return
+        except FileNotFoundError as e:
+            logging.info("No collaborator-metadata file found for migration")
+            return
+        except Exception as e:
+            logging.error("Collaborator migration failed")
+            logging.error(f"Error: {e}")
+            raise
+
     def create_paused_jobs(self, project_id: str, job_metadata_filepath: str):
         try:
             runtime_list = self.get_all_runtimes()
@@ -1689,6 +1829,25 @@ class ProjectImporter(BaseWorkspaceInteractor):
         )
         return response.json()
 
+    def get_project_collaborators_v2(self, page_token: str, project_id: str):
+        endpoint = Template(ApiV2Endpoints.COLLABORATORS.value).substitute(
+            page_size=constants.MAX_API_PAGE_LENGTH,
+            page_token=page_token,
+            project_id=project_id,
+        )
+
+        response = call_api_v2(
+            host=self.host,
+            endpoint=endpoint,
+            method="GET",
+            user_token=self.apiv2_key,
+            ca_path=self.ca_path,
+        )
+        result_list = response.json()
+        if result_list:
+            return result_list
+        return None
+
     def collect_import_job_list(self, project_id):
         job_list = self.get_jobs_listv2(proj_id=project_id)["jobs"]
         job_name_list = []
@@ -1754,3 +1913,26 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.metrics_data["total_application"] = len(app_name_list)
         self.metrics_data["application_name_list"] = sorted(app_name_list)
         return app_metadata_list, sorted(app_name_list)
+
+    def collect_import_collaborator_list(self, project_id):
+        project_collaborators_resp = self.get_project_collaborators_v2(
+            project_id=project_id, page_token=""
+        )
+        project_collaborators_new = {"collaborators": []}
+
+        usernames = []
+
+        for collaborator in project_collaborators_resp["collaborators"]:
+            collaborator_entry = {
+                "permission": collaborator["permission"],
+                "username": collaborator["user"]["username"],
+            }
+            project_collaborators_new["collaborators"].append(collaborator_entry)
+            usernames.append(collaborator["user"]["username"])
+
+        self.metrics_data["total_collaborators"] = len(
+            project_collaborators_new["collaborators"]
+        )
+        self.metrics_data["collaborator_list"] = sorted(usernames)
+
+        return project_collaborators_new["collaborators"], sorted(usernames)

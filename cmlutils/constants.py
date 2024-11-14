@@ -41,6 +41,8 @@ class ApiV2Endpoints(Enum):
     SEARCH_APP = "/api/v2/projects/$project_id/applications?search_filter=$search_option&page_size=100000"
     RUNTIME_ADDONS = "/api/v2/runtimeaddons?search_filter=$search_option"
     RUNTIMES = "/api/v2/runtimes?page_size=$page_size&page_token=$page_token"
+    COLLABORATORS = "/api/v2/projects/$project_id/collaborators?page_size=$page_size&page_token=$page_token"
+    ADD_COLLABORATOR = "/api/v2/projects/$project_id/collaborators/$user_name"
 
 
 class ApiV1Endpoints(Enum):
