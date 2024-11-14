@@ -320,6 +320,39 @@ def compare_metadata(
                         config_differences[name]= difference
     return data_list_diff, config_differences
 
+def compare_collaborator_metadata(
+    import_data, export_data, import_data_list, export_data_list, skip_field=None
+):
+    if skip_field is None:
+        skip_field = []
+
+    data_list_diff = list(set(sorted(export_data_list)) - set(sorted(import_data_list)))
+    config_differences = {}
+
+    import_data_dict = {data["username"]: data for data in import_data}
+    export_data_dict = {data["username"]: data for data in export_data}
+
+    for name, im_data in import_data_dict.items():
+        ex_data = export_data_dict.get(name)
+
+        if ex_data is None:
+            continue
+
+        for key, value in im_data.items():
+            if key not in skip_field:
+                ex_value = ex_data.get(key)
+                if ex_value is not None and str(ex_value) != str(value):
+                    difference = [
+                        "{} value in destination is {}, and source is {}".format(
+                            key, str(value), str(ex_value)
+                        )
+                    ]
+                    if config_differences.get(name):
+                        config_differences[name].extend(difference)
+                    else:
+                        config_differences[name] = difference
+    return data_list_diff, config_differences
+
 
 def update_verification_status(data_diff, message):
     if data_diff:
