@@ -358,7 +358,10 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
         if project_list:
             for project in project_list:
-                if project["name"] == self.project_name:
+                # If exporting from CDSW, it is possible that project lists can contain other users' projects,
+                # so there could be projects that has the same name but belong to other users. To ensure that
+                # we identify the correct project, we need to compare the project owner's name too.
+                if project["name"] == self.project_name and project["owner"]["username"] == self.username:
                     if project["owner"]["type"] == constants.ORGANIZATION_TYPE:
                         return (
                             project["owner"]["username"],
