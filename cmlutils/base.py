@@ -9,6 +9,9 @@ from cmlutils.utils import call_api_v1
 
 
 class BaseWorkspaceInteractor(object):
+    # use a variable to store the apiv2 key for repeated use instead
+    _apiv2_key = None
+
     def __init__(
         self,
         host: str,
@@ -27,6 +30,9 @@ class BaseWorkspaceInteractor(object):
 
     @property
     def apiv2_key(self) -> str:
+        if self._apiv2_key:
+            return self._apiv2_key
+
         endpoint = Template(ApiV1Endpoints.API_KEY.value).substitute(
             username=self.username
         )
@@ -44,8 +50,8 @@ class BaseWorkspaceInteractor(object):
             ca_path=self.ca_path,
         )
         response_dict = response.json()
-        _apiv2_key = response_dict["apiKey"]
-        return _apiv2_key
+        self._apiv2_key = response_dict["apiKey"]
+        return self._apiv2_key
 
     def remove_cdswctl_dir(self, file_path: str):
         if os.path.exists(file_path):
