@@ -324,9 +324,11 @@ class ProjectExporter(BaseWorkspaceInteractor):
         # Handle Pagination if exists
         while next_page_exists:
             # Note - projectName param makes LIKE query not the exact match
+            # If projectname has back slashes, it need to be escaped before passing to the API
+            escaped_project_name = self.project_name.replace("\\", "\\\\")
             endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
                 username=self.username,
-                projectName=self.project_name,
+                projectName=escaped_project_name,
                 limit=constants.MAX_API_PAGE_LENGTH,
                 offset=offset * constants.MAX_API_PAGE_LENGTH,
             )
@@ -930,9 +932,11 @@ class ProjectImporter(BaseWorkspaceInteractor):
         # Handle Pagination if exists
         while next_page_exists:
             # Note - projectName param makes LIKE query not the exact match
+            # If projectname has back slashes, it need to be escaped before passing to the API
+            escaped_project_name = self.project_name.replace("\\", "\\\\")
             endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
                 username=self.username,
-                projectName=self.project_name,
+                projectName=escaped_project_name,
                 limit=constants.MAX_API_PAGE_LENGTH,
                 offset=offset * constants.MAX_API_PAGE_LENGTH,
             )
