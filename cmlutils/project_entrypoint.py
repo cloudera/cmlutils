@@ -274,7 +274,12 @@ def project_import_cmd(project_name, verify):
             uses_engine = True
             project_metadata.pop("default_project_engine_type", None)
 
-        project_id = p.check_project_exist(project_metadata["name"])
+        # check if the project to be imported is a team's project
+        if "team_name" in project_metadata:
+            project_id = p.check_project_exist(project_metadata["name"], project_metadata["team_name"])
+        else:
+            project_id = p.check_project_exist(project_metadata["name"])
+
         if project_id == None:
             logging.info(
                 "Creating project %s to migrate files and metadata.", project_name
@@ -288,21 +293,19 @@ def project_import_cmd(project_name, verify):
         if "team_name" in project_metadata:
             username = project_metadata["team_name"]
         creator_username, project_slug = p.get_creator_username()
-        pimport = ProjectImporter(
-            host=url,
-            username=username,
-            project_name=project_name,
-            api_key=apiv1_key,
-            top_level_dir=local_directory,
-            ca_path=ca_path,
-            project_slug=project_slug,
-        )
+
+        # reuse the ProjectImporter obj since it already generated the apiv2 key
+        # this fixed the bug of team projects import where cmlutil was trying to
+        # generate apiv2 key using the team's username
+        pimport = p
+        pimport.username = username
+        pimport.project_slug = project_slug
+
         start_time = time.time()
         if verify:
             import_diff_file_list=pimport.transfer_project(log_filedir=log_filedir, verify=True)
         else:
             pimport.transfer_project(log_filedir=log_filedir)
-
 
         if uses_engine:
             proj_patch_metadata = {"default_project_engine_type": "legacy_engine"}

@@ -324,9 +324,11 @@ class ProjectExporter(BaseWorkspaceInteractor):
         # Handle Pagination if exists
         while next_page_exists:
             # Note - projectName param makes LIKE query not the exact match
+            # If projectname has back slashes, it need to be escaped before passing to the API
+            escaped_project_name = self.project_name.replace("\\", "\\\\")
             endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
                 username=self.username,
-                projectName=self.project_name,
+                projectName=escaped_project_name,
                 limit=constants.MAX_API_PAGE_LENGTH,
                 offset=offset * constants.MAX_API_PAGE_LENGTH,
             )
@@ -358,7 +360,10 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
         if project_list:
             for project in project_list:
-                if project["name"] == self.project_name:
+                # It is possible that project lists can contain other users' public projects, or team's projects
+                # so there could be projects that has the same name but belong to other users. To ensure that
+                # we identify the correct project, we need to compare the project owner's name too.
+                if project["name"] == self.project_name and project["owner"]["username"] == self.username:
                     if project["owner"]["type"] == constants.ORGANIZATION_TYPE:
                         return (
                             project["owner"]["username"],
@@ -927,9 +932,11 @@ class ProjectImporter(BaseWorkspaceInteractor):
         # Handle Pagination if exists
         while next_page_exists:
             # Note - projectName param makes LIKE query not the exact match
+            # If projectname has back slashes, it need to be escaped before passing to the API
+            escaped_project_name = self.project_name.replace("\\", "\\\\")
             endpoint = Template(ApiV1Endpoints.PROJECTS_SUMMARY.value).substitute(
                 username=self.username,
-                projectName=self.project_name,
+                projectName=escaped_project_name,
                 limit=constants.MAX_API_PAGE_LENGTH,
                 offset=offset * constants.MAX_API_PAGE_LENGTH,
             )
@@ -1243,7 +1250,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             return result_list
         return None
 
-    def check_project_exist(self, project_name: str) -> str:
+    def check_project_exist(self, project_name: str, team_name: str = None) -> str:
         try:
             search_option = {"name": project_name}
             encoded_option = urllib.parse.quote(
@@ -1260,9 +1267,19 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 ca_path=self.ca_path,
             )
             project_list = response.json()["projects"]
+
+            # If the project is a team's project, then the owner of the project is the team
+            if team_name:
+                owner = team_name
+            else:
+                owner = self.username
+
+            # It is possible that project lists can contain other users' public projects, or team's projects
+            # so there could be projects that has the same name but belong to other users. To ensure that
+            # we identify the correct project, we need to compare the project owner's name too.
             if project_list:
                 for project in project_list:
-                    if project["name"] == project_name:
+                    if project["name"] == project_name and project["owner"]["username"] == owner:
                         return project["id"]
             return None
         except KeyError as e:
