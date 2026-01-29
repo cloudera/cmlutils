@@ -284,14 +284,13 @@ def project_import_cmd(project_name, verify):
             logging.info(
                 "Creating project %s to migrate files and metadata.", project_name
             )
+            project_metadata.pop("team_name", None)
             project_id = p.create_project_v2(proj_metadata=project_metadata)
         else:
             logging.warning(
                 "Project %s already exist in the target workspace. Retrying the import won't update existing project settings or artifacts. Only missing artifacts will be migrated, However the project files will be synced via rsync.",
                 project_metadata.get("name", ""),
             )
-        if "team_name" in project_metadata:
-            username = project_metadata["team_name"]
         creator_username, project_slug = p.get_creator_username()
         pimport = ProjectImporter(
             host=url,
@@ -317,6 +316,20 @@ def project_import_cmd(project_name, verify):
         import_data = dict()
         import_data["project_name"] = project_name
         import_data = pimport.import_metadata(project_id=project_id)
+        
+        # Transfer ownership to original owner if specified in metadata
+        if "original_owner_username" in project_metadata and project_metadata["original_owner_username"]:
+            original_owner = project_metadata["original_owner_username"]
+            logging.info("Attempting to transfer ownership to original owner: %s", original_owner)
+            try:
+                pimport.trasnfer_ownership_to_original_owner(original_owner_username=original_owner)
+            except Exception as e:
+                logging.warning(
+                    "Ownership transfer to %s failed but continuing with import. Error: %s",
+                    original_owner,
+                    str(e)
+                )
+        
         print("\033[32m✔ Import of Project {} Successful \033[0m".format(project_name))
         print(
             "\033[34m\tImported {} Jobs {}\033[0m".format(

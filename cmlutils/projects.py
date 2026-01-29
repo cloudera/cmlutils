@@ -695,6 +695,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
 
         project_metadata["template"] = "blank"
         project_metadata["environment"] = project_env
+        project_metadata["original_owner_username"] = self.project_owner_username
 
         # Create project in team context
         if self.owner_type == constants.ORGANIZATION_TYPE:
