@@ -290,6 +290,7 @@ def verify_files(
     
     # Add importignore exclusions if provided
     if importignore_path is not None and os.path.exists(importignore_path):
+        logging.info("Using .importignore file for exclusions: %s", importignore_path)
         subprocess_arguments.append(f"--exclude-from={importignore_path}")
     
     if exclude_file_path is not None:
