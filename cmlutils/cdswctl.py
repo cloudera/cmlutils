@@ -62,6 +62,5 @@ def obtain_cdswctl(host: str, ca_path: str) -> str:
 
 def cdswctl_login(cdswctl_path: str, host: str, username: str, api_key: str):
     logging.info("Logging into cdsw via cdswctl")
-    return subprocess.run(
-        [cdswctl_path, "login", "-n", username, "-u", host, "-y", api_key]
-    )
+    command = [cdswctl_path, "login", "-n", username, "-u", host, "-y", api_key]
+    return subprocess.run(command)

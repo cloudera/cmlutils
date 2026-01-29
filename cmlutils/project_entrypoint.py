@@ -16,6 +16,7 @@ from cmlutils.constants import (
     OUTPUT_DIR_KEY,
     URL_KEY,
     USERNAME_KEY,
+    PROJECT_OWNER_USERNAME_KEY,
 )
 from cmlutils.directory_utils import get_project_metadata_file_path
 from cmlutils.projects import ProjectExporter, ProjectImporter
@@ -72,6 +73,7 @@ def _read_config_file(file_path: str, project_name: str):
                 print("Key %s is missing from config file." % (key))
                 raise
         output_config[CA_PATH_KEY] = config.get(project_name, CA_PATH_KEY, fallback="")
+        output_config[PROJECT_OWNER_USERNAME_KEY] = config.get(project_name, PROJECT_OWNER_USERNAME_KEY, fallback=config.get(project_name, USERNAME_KEY))
         return output_config
     else:
         print("Validation error: cannot find config file:", file_path)
@@ -99,6 +101,7 @@ def project_export_cmd(project_name):
     )
 
     username = config[USERNAME_KEY]
+    project_owner_username = config[PROJECT_OWNER_USERNAME_KEY]
     url = config[URL_KEY]
     apiv1_key = config[API_V1_KEY]
     output_dir = config[OUTPUT_DIR_KEY]
@@ -111,10 +114,10 @@ def project_export_cmd(project_name):
     _configure_project_command_logging(log_filedir, project_name)
     logging.info("Started exporting project: %s", project_name)
     try:
-        # Get username of the creator of project - This is required so that admins can also migrate the project
         pobj = ProjectExporter(
             host=url,
             username=username,
+            project_owner_username=project_owner_username,
             project_name=project_name,
             api_key=apiv1_key,
             top_level_dir=output_dir,
@@ -130,10 +133,11 @@ def project_export_cmd(project_name):
                 username,
             )
             raise RuntimeError("Validation error")
+        logging.info("project creator username: %s", creator_username)
         logging.info("Begin validating for export.")
         validators = initialize_export_validators(
             host=url,
-            username=creator_username,
+            username=project_owner_username,
             project_name=project_name,
             top_level_directory=output_dir,
             apiv1_key=apiv1_key,
@@ -157,7 +161,8 @@ def project_export_cmd(project_name):
         logging.info("File transfer has started.")
         pexport = ProjectExporter(
             host=url,
-            username=creator_username,
+            username=username,
+            project_owner_username=project_owner_username,
             project_name=project_name,
             api_key=apiv1_key,
             top_level_dir=output_dir,
@@ -360,6 +365,7 @@ def project_import_cmd(project_name, verify):
             )
 
             export_username = config[USERNAME_KEY]
+            export_project_owner_username = config[PROJECT_OWNER_USERNAME_KEY]
             export_url = config[URL_KEY]
             export_apiv1_key = config[API_V1_KEY]
             output_dir = config[OUTPUT_DIR_KEY]
@@ -375,10 +381,10 @@ def project_import_cmd(project_name, verify):
             with open(import_file, 'r') as file:
                 validation_data = json.load(file)
             try:
-                # Get username of the creator of project - This is required so that admins can also migrate the project
                 pobj = ProjectExporter(
                     host=export_url,
                     username=export_username,
+                    project_owner_username=export_project_owner_username,
                     project_name=project_name,
                     api_key=export_apiv1_key,
                     top_level_dir=export_output_dir,
@@ -401,7 +407,7 @@ def project_import_cmd(project_name, verify):
                 logging.info("Begin validating export project")
                 validators = initialize_export_validators(
                     host=export_url,
-                    username=export_creator_username,
+                    username=export_project_owner_username,
                     project_name=project_name,
                     top_level_directory=export_output_dir,
                     apiv1_key=export_apiv1_key,
@@ -425,7 +431,8 @@ def project_import_cmd(project_name, verify):
                 )
                 pexport = ProjectExporter(
                     host=export_url,
-                    username=export_creator_username,
+                    username=export_username,
+                    project_owner_username=export_project_owner_username,
                     project_name=project_name,
                     api_key=export_apiv1_key,
                     top_level_dir=export_output_dir,
@@ -620,6 +627,7 @@ def project_verify_cmd(project_name):
     )
 
     export_username = config[USERNAME_KEY]
+    export_project_owner_username = config[PROJECT_OWNER_USERNAME_KEY]
     export_url = config[URL_KEY]
     export_apiv1_key = config[API_V1_KEY]
     output_dir = config[OUTPUT_DIR_KEY]
@@ -642,6 +650,7 @@ def project_verify_cmd(project_name):
         pobj = ProjectExporter(
             host=export_url,
             username=export_username,
+            project_owner_username=export_project_owner_username,
             project_name=project_name,
             api_key=export_apiv1_key,
             top_level_dir=export_output_dir,
@@ -664,7 +673,7 @@ def project_verify_cmd(project_name):
         logging.info("Begin validating export project")
         validators = initialize_export_validators(
             host=export_url,
-            username=export_creator_username,
+            username=export_project_owner_username,
             project_name=project_name,
             top_level_directory=export_output_dir,
             apiv1_key=export_apiv1_key,
@@ -688,7 +697,8 @@ def project_verify_cmd(project_name):
         )
         pexport = ProjectExporter(
             host=export_url,
-            username=export_creator_username,
+            username=export_username,
+            project_owner_username=export_project_owner_username,
             project_name=project_name,
             api_key=export_apiv1_key,
             top_level_dir=export_output_dir,

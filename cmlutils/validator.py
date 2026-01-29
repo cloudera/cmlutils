@@ -238,7 +238,7 @@ class ProjectBelongsToUserValidator(ExportValidators):
 
     def validate(self) -> ValidationResponse:
         endpoint = Template(ApiV1Endpoints.PROJECT.value).substitute(
-            username=self.username, project_name=self.project_slug
+            owner=self.username, project_name=self.project_slug
         )
         try:
             response = call_api_v1(
