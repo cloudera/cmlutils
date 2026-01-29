@@ -74,6 +74,9 @@ def _read_config_file(file_path: str, project_name: str):
                 raise
         output_config[CA_PATH_KEY] = config.get(project_name, CA_PATH_KEY, fallback="")
         output_config[PROJECT_OWNER_USERNAME_KEY] = config.get(project_name, PROJECT_OWNER_USERNAME_KEY, fallback=config.get(project_name, USERNAME_KEY))
+        output_config[constants.SKIP_TLS_VERIFICATION_KEY] = config.getboolean(
+            project_name, constants.SKIP_TLS_VERIFICATION_KEY, fallback=False
+        )
         return output_config
     else:
         print("Validation error: cannot find config file:", file_path)
@@ -106,6 +109,7 @@ def project_export_cmd(project_name):
     apiv1_key = config[API_V1_KEY]
     output_dir = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
+    skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
     output_dir = get_absolute_path(output_dir)
     ca_path = get_absolute_path(ca_path)
@@ -124,6 +128,7 @@ def project_export_cmd(project_name):
             ca_path=ca_path,
             project_slug=project_name,
             owner_type="",
+            skip_tls_verification=skip_tls_verification,
         )
         creator_username, project_slug, owner_type = pobj.get_creator_username()
         if creator_username is None:
@@ -143,6 +148,7 @@ def project_export_cmd(project_name):
             apiv1_key=apiv1_key,
             ca_path=ca_path,
             project_slug=project_slug,
+            skip_tls_verification=skip_tls_verification,
         )
         for v in validators:
             validation_response = v.validate()
@@ -169,6 +175,7 @@ def project_export_cmd(project_name):
             ca_path=ca_path,
             project_slug=project_slug,
             owner_type=owner_type,
+            skip_tls_verification=skip_tls_verification,
         )
         start_time = time.time()
         pexport.transfer_project_files(log_filedir=log_filedir)
@@ -230,6 +237,7 @@ def project_import_cmd(project_name, verify):
     apiv1_key = config[API_V1_KEY]
     local_directory = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
+    skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
     local_directory = get_absolute_path(local_directory)
     ca_path = get_absolute_path(ca_path)
     log_filedir = os.path.join(local_directory, project_name, "logs")
@@ -243,6 +251,7 @@ def project_import_cmd(project_name, verify):
         top_level_dir=local_directory,
         ca_path=ca_path,
         project_slug=project_name,
+        skip_tls_verification=skip_tls_verification,
     )
     logging.info("Started importing project: %s", project_name)
     try:
@@ -253,6 +262,7 @@ def project_import_cmd(project_name, verify):
             top_level_directory=local_directory,
             apiv1_key=apiv1_key,
             ca_path=ca_path,
+            skip_tls_verification=skip_tls_verification,
         )
         logging.info("Begin validating for import.")
         for v in validators:
@@ -300,6 +310,7 @@ def project_import_cmd(project_name, verify):
             top_level_dir=local_directory,
             ca_path=ca_path,
             project_slug=project_slug,
+            skip_tls_verification=skip_tls_verification,
         )
         start_time = time.time()
         if verify:

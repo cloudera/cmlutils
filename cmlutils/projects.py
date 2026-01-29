@@ -44,12 +44,18 @@ def is_project_configured_with_runtimes(
     api_key: str,
     ca_path: str,
     project_slug: str,
+    skip_tls_verification: bool = False,
 ) -> bool:
     endpoint = Template(ApiV1Endpoints.PROJECT.value).substitute(
         owner=username, project_name=project_slug
     )
     response = call_api_v1(
-        host=host, endpoint=endpoint, method="GET", api_key=api_key, ca_path=ca_path
+        host=host, 
+        endpoint=endpoint, 
+        method="GET", 
+        api_key=api_key, 
+        ca_path=ca_path,
+        skip_tls_verification=skip_tls_verification,
     )
     response_dict = response.json()
     return (
@@ -67,6 +73,7 @@ def get_ignore_files(
     ssh_port: str,
     project_slug: str,
     top_level_dir: str,
+    skip_tls_verification: bool = False,
 ) -> str:
     endpoint = Template(ApiV1Endpoints.PROJECT_FILE.value).substitute(
         owner=username, project_name=project_slug, filename=constants.FILE_NAME
@@ -78,7 +85,12 @@ def get_ignore_files(
             project_name,
         )
         response = call_api_v1(
-            host=host, endpoint=endpoint, method="GET", api_key=api_key, ca_path=ca_path
+            host=host, 
+            endpoint=endpoint, 
+            method="GET", 
+            api_key=api_key, 
+            ca_path=ca_path,
+            skip_tls_verification=skip_tls_verification,
         )
         a = response.text + "\n" + constants.FILE_NAME
         with open(
@@ -169,8 +181,9 @@ def parse_rsync_errors_from_output(stderr_output: str) -> list:
     
     return error_lines
 
-def get_rsync_enabled_runtime_id(host: str, api_key: str, ca_path: str) -> int:
-    runtime_list = get_cdsw_runtimes(host=host, api_key=api_key, ca_path=ca_path)
+
+def get_rsync_enabled_runtime_id(host: str, api_key: str, ca_path: str, skip_tls_verification: bool = False) -> int:
+    runtime_list = get_cdsw_runtimes(host=host, api_key=api_key, ca_path=ca_path, skip_tls_verification=skip_tls_verification)
     for runtime in runtime_list:
         if "rsync" in runtime["edition"].lower():
             logging.info("Rsync enabled runtime is available.")
@@ -179,10 +192,15 @@ def get_rsync_enabled_runtime_id(host: str, api_key: str, ca_path: str) -> int:
     return -1
 
 
-def get_cdsw_runtimes(host: str, api_key: str, ca_path: str) -> list[dict[str, Any]]:
+def get_cdsw_runtimes(host: str, api_key: str, ca_path: str, skip_tls_verification: bool = False) -> list[dict[str, Any]]:
     endpoint = "api/v1/runtimes"
     response = call_api_v1(
-        host=host, endpoint=endpoint, method="GET", api_key=api_key, ca_path=ca_path
+        host=host, 
+        endpoint=endpoint, 
+        method="GET", 
+        api_key=api_key, 
+        ca_path=ca_path,
+        skip_tls_verification=skip_tls_verification,
     )
     response_dict = response.json()
     return response_dict["runtimes"]
@@ -357,13 +375,14 @@ class ProjectExporter(BaseWorkspaceInteractor):
         ca_path: str,
         project_slug: str,
         owner_type: str,
+        skip_tls_verification: bool = False,
     ) -> None:
         self._ssh_subprocess = None
         self.top_level_dir = top_level_dir
         self.project_id = None
         self.project_owner_username = project_owner_username
         self.owner_type = owner_type
-        super().__init__(host, username, project_name, api_key, ca_path, project_slug)
+        super().__init__(host, username, project_name, api_key, ca_path, project_slug, skip_tls_verification)
         self.metrics_data = dict()
 
     # Get CDSW project info using API v1
@@ -377,6 +396,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -391,6 +411,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -408,12 +429,14 @@ class ProjectExporter(BaseWorkspaceInteractor):
                 limit=constants.MAX_API_PAGE_LENGTH,
                 offset=offset * constants.MAX_API_PAGE_LENGTH,
             )
+            logging.info("Endpoint: %s", endpoint)
             response = call_api_v1(
                 host=self.host,
                 endpoint=endpoint,
                 method="GET",
                 api_key=self.api_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
 
             """
@@ -455,6 +478,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             api_key=self.api_key,
             json_data=json_data,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -469,6 +493,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -483,6 +508,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -501,6 +527,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             api_key=self.api_key,
             json_data=json_data,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -515,6 +542,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -529,6 +557,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -541,6 +570,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -559,11 +589,12 @@ class ProjectExporter(BaseWorkspaceInteractor):
             api_key=self.api_key,
             ca_path=self.ca_path,
             project_slug=self.project_slug,
+            skip_tls_verification=self.skip_tls_verification,
         ):
             rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
-                host=self.host, api_key=self.api_key, ca_path=self.ca_path
+                host=self.host, api_key=self.api_key, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification
             )
-        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path)
+        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification)
         login_response = cdswctl_login(
             cdswctl_path=cdswctl_path,
             host=self.host,
@@ -594,6 +625,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             ssh_port=port,
             project_slug=self.project_slug,
             top_level_dir=self.top_level_dir,
+            skip_tls_verification=self.skip_tls_verification,
         )
         test_file_size(
             sshport=port,
@@ -622,11 +654,12 @@ class ProjectExporter(BaseWorkspaceInteractor):
             api_key=self.api_key,
             ca_path=self.ca_path,
             project_slug=self.project_slug,
+            skip_tls_verification=self.skip_tls_verification,
         ):
             rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
-                host=self.host, api_key=self.api_key, ca_path=self.ca_path
+                host=self.host, api_key=self.api_key, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification
             )
-        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path)
+        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification)
         login_response = cdswctl_login(
             cdswctl_path=cdswctl_path,
             host=self.host,
@@ -654,6 +687,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             ssh_port=port,
             project_slug=self.project_slug,
             top_level_dir=self.top_level_dir,
+            skip_tls_verification=self.skip_tls_verification,
         )
         result = verify_files(
             sshport=port,
@@ -983,10 +1017,11 @@ class ProjectImporter(BaseWorkspaceInteractor):
         top_level_dir: str,
         ca_path: str,
         project_slug: str,
+        skip_tls_verification: bool = False,
     ) -> None:
         self._ssh_subprocess = None
         self.top_level_dir = top_level_dir
-        super().__init__(host, username, project_name, api_key, ca_path, project_slug)
+        super().__init__(host, username, project_name, api_key, ca_path, project_slug, skip_tls_verification)
         self.metrics_data = dict()
 
     def get_creator_username(self):
@@ -1009,6 +1044,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 method="GET",
                 api_key=self.api_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
 
             """
@@ -1038,9 +1074,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
     def transfer_project(self, log_filedir: str, verify=False):
         result = None
         rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
-            host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path
+            host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification
         )
-        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path)
+        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification)
         login_response = cdswctl_login(
             cdswctl_path=cdswctl_path,
             host=self.host,
@@ -1095,9 +1131,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
 
     def verify_project(self, log_filedir: str):
         rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
-            host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path
+            host=self.host, api_key=self.apiv2_key, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification
         )
-        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path)
+        cdswctl_path = obtain_cdswctl(host=self.host, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification)
         login_response = cdswctl_login(
             cdswctl_path=cdswctl_path,
             host=self.host,
@@ -1155,6 +1191,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 user_token=self.apiv2_key,
                 json_data=proj_metadata,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             json_resp = response.json()
             return json_resp["id"]
@@ -1174,6 +1211,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 api_key=self.api_key,
                 json_data=proj_patch_metadata,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             return True
         except KeyError as e:
@@ -1192,6 +1230,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 user_token=self.apiv2_key,
                 json_data=model_metadata,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             json_resp = response.json()
             return json_resp["id"]
@@ -1212,6 +1251,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             user_token=self.apiv2_key,
             json_data=model_metadata,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return
 
@@ -1227,6 +1267,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 user_token=self.apiv2_key,
                 json_data=app_metadata,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             json_resp = response.json()
             return json_resp["id"]
@@ -1244,6 +1285,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="POST",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return
 
@@ -1259,6 +1301,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 user_token=self.apiv2_key,
                 json_data=job_metadata,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             json_resp = response.json()
             return json_resp["id"]
@@ -1277,6 +1320,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             user_token=self.apiv2_key,
             json_data=job_metadata,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return
 
@@ -1289,6 +1333,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             api_key=self.api_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -1305,6 +1350,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         result_list = response.json()["runtime_addons"]
         if result_list:
@@ -1322,6 +1368,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         result_list = response.json()
         if result_list:
@@ -1343,6 +1390,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 method="GET",
                 user_token=self.apiv2_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             project_list = response.json()["projects"]
             if project_list:
@@ -1369,6 +1417,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 method="GET",
                 user_token=self.apiv2_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             model_list = response.json()["models"]
             if model_list:
@@ -1395,6 +1444,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 method="GET",
                 user_token=self.apiv2_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             job_list = response.json()["jobs"]
             if job_list:
@@ -1421,6 +1471,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 method="GET",
                 user_token=self.apiv2_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             app_list = response.json()["applications"]
             if app_list:
@@ -1442,6 +1493,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -1455,6 +1507,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -1468,6 +1521,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -1481,6 +1535,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 
@@ -1544,6 +1599,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 api_key=self.api_key,
                 ca_path=self.ca_path,
                 project_slug=self.project_slug,
+                skip_tls_verification=self.skip_tls_verification,
             )
             model_metadata_list = read_json_file(models_metadata_filepath)
             if model_metadata_list != None:
@@ -1621,6 +1677,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 api_key=self.api_key,
                 ca_path=self.ca_path,
                 project_slug=self.project_slug,
+                skip_tls_verification=self.skip_tls_verification,
             )
             app_metadata_list = read_json_file(app_metadata_filepath)
             if app_metadata_list != None:
@@ -1684,6 +1741,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 api_key=self.api_key,
                 ca_path=self.ca_path,
                 project_slug=self.project_slug,
+                skip_tls_verification=self.skip_tls_verification,
             )
             job_metadata_list = read_json_file(job_metadata_filepath)
             src_tgt_job_mapping = {}
@@ -1771,6 +1829,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             method="GET",
             user_token=self.apiv2_key,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         return response.json()
 

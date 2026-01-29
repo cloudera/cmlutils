@@ -17,6 +17,7 @@ class BaseWorkspaceInteractor(object):
         api_key: str,
         ca_path: str,
         project_slug: str,
+        skip_tls_verification: bool = False,
     ) -> None:
         self.host = host
         self.username = username
@@ -24,6 +25,7 @@ class BaseWorkspaceInteractor(object):
         self.api_key = api_key
         self.ca_path = ca_path
         self.project_slug = project_slug
+        self.skip_tls_verification = skip_tls_verification
 
     @property
     def apiv2_key(self) -> str:
@@ -42,6 +44,7 @@ class BaseWorkspaceInteractor(object):
             api_key=self.api_key,
             json_data=json_data,
             ca_path=self.ca_path,
+            skip_tls_verification=self.skip_tls_verification,
         )
         response_dict = response.json()
         _apiv2_key = response_dict["apiKey"]

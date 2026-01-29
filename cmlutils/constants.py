@@ -23,6 +23,7 @@ API_V1_KEY = "apiv1_key"
 OUTPUT_DIR_KEY = "output_dir"
 PROJECT_NAME_KEY = "project_name"
 CA_PATH_KEY = "ca_path"
+SKIP_TLS_VERIFICATION_KEY = "skip_tls_verification"
 MAX_API_PAGE_LENGTH = 30
 
 

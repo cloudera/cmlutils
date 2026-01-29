@@ -68,7 +68,7 @@ class DirectoriesAndFilesValidator(ImportValidators):
 
 class UserNameImportValidator(ImportValidators):
     def __init__(
-        self, host: str, username: str, apiv1_key: str, project_name: str, ca_path: str
+        self, host: str, username: str, apiv1_key: str, project_name: str, ca_path: str, skip_tls_verification: bool = False
     ):
         self.validation_name = "check if user is present"
         self.host = host
@@ -76,6 +76,7 @@ class UserNameImportValidator(ImportValidators):
         self.apiv1_key = apiv1_key
         self.project_name = project_name
         self.ca_path = ca_path
+        self.skip_tls_verification = skip_tls_verification
 
     def validate(self) -> ValidationResponse:
         endpoint = Template(ApiV1Endpoints.USER_INFO.value).substitute(
@@ -88,6 +89,7 @@ class UserNameImportValidator(ImportValidators):
                 method="GET",
                 api_key=self.apiv1_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             return ValidationResponse(
                 validation_name=self.validation_name,
@@ -125,7 +127,7 @@ class UserNameImportValidator(ImportValidators):
 
 class RsyncRuntimeAddonExistsImportValidator(ImportValidators):
     def __init__(
-        self, host: str, username: str, apiv1_key: str, project_name: str, ca_path: str
+        self, host: str, username: str, apiv1_key: str, project_name: str, ca_path: str, skip_tls_verification: bool = False
     ):
         self.validation_name = "check if rsync is present"
         self.host = host
@@ -133,11 +135,12 @@ class RsyncRuntimeAddonExistsImportValidator(ImportValidators):
         self.apiv1_key = apiv1_key
         self.project_name = project_name
         self.ca_path = ca_path
+        self.skip_tls_verification = skip_tls_verification
 
     def validate(self) -> ValidationResponse:
         rsync_enabled_runtime_id = -1
         rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
-            host=self.host, api_key=self.apiv1_key, ca_path=self.ca_path
+            host=self.host, api_key=self.apiv1_key, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification
         )
         if rsync_enabled_runtime_id != -1:
             return ValidationResponse(
@@ -160,7 +163,7 @@ class ExportValidators(metaclass=ABCMeta):
 
 class UsernameValidator(ExportValidators):
     def __init__(
-        self, host: str, username: str, apiv1_key: str, project_name: str, ca_path: str
+        self, host: str, username: str, apiv1_key: str, project_name: str, ca_path: str, skip_tls_verification: bool = False
     ):
         self.validation_name = "check if user is present"
         self.host = host
@@ -168,6 +171,7 @@ class UsernameValidator(ExportValidators):
         self.apiv1_key = apiv1_key
         self.project_name = project_name
         self.ca_path = ca_path
+        self.skip_tls_verification = skip_tls_verification
 
     def validate(self) -> ValidationResponse:
         endpoint = Template(ApiV1Endpoints.USER_INFO.value).substitute(
@@ -180,6 +184,7 @@ class UsernameValidator(ExportValidators):
                 method="GET",
                 api_key=self.apiv1_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             return ValidationResponse(
                 validation_name=self.validation_name,
@@ -224,6 +229,7 @@ class ProjectBelongsToUserValidator(ExportValidators):
         project_name: str,
         ca_path: str,
         project_slug: str,
+        skip_tls_verification: bool = False,
     ):
         self.validation_name = "Validate if the project {} belongs to user {}".format(
             project_name, username
@@ -235,6 +241,7 @@ class ProjectBelongsToUserValidator(ExportValidators):
         self.project_name = project_name
         self.ca_path = ca_path
         self.project_slug = project_slug
+        self.skip_tls_verification = skip_tls_verification
 
     def validate(self) -> ValidationResponse:
         endpoint = Template(ApiV1Endpoints.PROJECT.value).substitute(
@@ -247,6 +254,7 @@ class ProjectBelongsToUserValidator(ExportValidators):
                 method="GET",
                 api_key=self.apiv1_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
             return ValidationResponse(
                 validation_name=self.validation_name,
@@ -292,6 +300,7 @@ class RsyncRuntimeAddonExistsExportValidator(ExportValidators):
         project_name: str,
         ca_path: str,
         project_slug: str,
+        skip_tls_verification: bool = False,
     ):
         self.validation_name = "check if rsync is present"
         self.host = host
@@ -300,6 +309,7 @@ class RsyncRuntimeAddonExistsExportValidator(ExportValidators):
         self.project_name = project_name
         self.ca_path = ca_path
         self.project_slug = project_slug
+        self.skip_tls_verification = skip_tls_verification
 
     def validate(self) -> ValidationResponse:
         rsync_enabled_runtime_id = -1
@@ -310,9 +320,10 @@ class RsyncRuntimeAddonExistsExportValidator(ExportValidators):
             api_key=self.apiv1_key,
             ca_path=self.ca_path,
             project_slug=self.project_slug,
+            skip_tls_verification=self.skip_tls_verification,
         ):
             rsync_enabled_runtime_id = get_rsync_enabled_runtime_id(
-                host=self.host, api_key=self.apiv1_key, ca_path=self.ca_path
+                host=self.host, api_key=self.apiv1_key, ca_path=self.ca_path, skip_tls_verification=self.skip_tls_verification
             )
             if rsync_enabled_runtime_id != -1:
                 return ValidationResponse(
@@ -344,6 +355,7 @@ def initialize_import_validators(
     top_level_directory: str,
     apiv1_key: str,
     ca_path: str,
+    skip_tls_verification: bool = False,
 ) -> List[ImportValidators]:
     return [
         DirectoriesAndFilesValidator(
@@ -357,6 +369,7 @@ def initialize_import_validators(
             apiv1_key=apiv1_key,
             project_name=project_name,
             ca_path=ca_path,
+            skip_tls_verification=skip_tls_verification,
         ),
         RsyncRuntimeAddonExistsImportValidator(
             host=host,
@@ -364,6 +377,7 @@ def initialize_import_validators(
             apiv1_key=apiv1_key,
             project_name=project_name,
             ca_path=ca_path,
+            skip_tls_verification=skip_tls_verification,
         ),
     ]
 
@@ -376,6 +390,7 @@ def initialize_export_validators(
     apiv1_key: str,
     ca_path: str,
     project_slug: str,
+    skip_tls_verification: bool = False,
 ) -> List[ExportValidators]:
     return [
         TopLevelDirectoryValidator(top_level_directory=top_level_directory),
@@ -385,6 +400,7 @@ def initialize_export_validators(
             apiv1_key=apiv1_key,
             project_name=project_name,
             ca_path=ca_path,
+            skip_tls_verification=skip_tls_verification,
         ),
         ProjectBelongsToUserValidator(
             host=host,
@@ -393,6 +409,7 @@ def initialize_export_validators(
             project_name=project_name,
             ca_path=ca_path,
             project_slug=project_slug,
+            skip_tls_verification=skip_tls_verification,
         ),
         RsyncRuntimeAddonExistsExportValidator(
             host=host,
@@ -401,5 +418,6 @@ def initialize_export_validators(
             project_name=project_name,
             ca_path=ca_path,
             project_slug=project_slug,
+            skip_tls_verification=skip_tls_verification,
         ),
     ]

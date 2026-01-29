@@ -19,6 +19,7 @@ def call_api_v1(
     api_key: str,
     json_data: dict = None,
     ca_path: str = "",
+    skip_tls_verification: bool = False,
 ) -> requests.Response:
     url = urllib.parse.urljoin(host, endpoint)
     s = requests.Session()
@@ -31,6 +32,15 @@ def call_api_v1(
     s.mount("https://", HTTPAdapter(max_retries=retries))
     headers = {"Content-Type": "application/json"}
     resp = None
+    
+    # Determine SSL verification setting
+    if skip_tls_verification:
+        verify_setting = False
+    elif ca_path != "":
+        verify_setting = ca_path
+    else:
+        verify_setting = True
+    
     try:
         if json_data != None:
             resp = s.request(
@@ -39,7 +49,7 @@ def call_api_v1(
                 auth=(api_key, ""),
                 headers=headers,
                 json=json_data,
-                verify=ca_path if ca_path != "" else True,
+                verify=verify_setting,
             )
         else:
             resp = s.request(
@@ -47,7 +57,7 @@ def call_api_v1(
                 url=url,
                 auth=(api_key, ""),
                 headers=headers,
-                verify=ca_path if ca_path != "" else True,
+                verify=verify_setting,
             )
         resp.raise_for_status()  # Raise an exception for 4xx or 5xx errors
         return resp
@@ -64,6 +74,7 @@ def call_api_v2(
     user_token: str,
     json_data: dict = None,
     ca_path: str = "",
+    skip_tls_verification: bool = False,
 ) -> requests.Response:
     url = urllib.parse.urljoin(host, endpoint)
     s = requests.Session()
@@ -79,6 +90,15 @@ def call_api_v2(
         "Authorization": "Bearer {}".format(user_token),
     }
     resp = None
+    
+    # Determine SSL verification setting
+    if skip_tls_verification:
+        verify_setting = False
+    elif ca_path != "":
+        verify_setting = ca_path
+    else:
+        verify_setting = True
+    
     try:
         if json_data != None:
             resp = s.request(
@@ -86,14 +106,14 @@ def call_api_v2(
                 url=url,
                 headers=headers,
                 json=json_data,
-                verify=ca_path if ca_path != "" else True,
+                verify=verify_setting,
             )
         else:
             resp = s.request(
                 method=method.upper(),
                 url=url,
                 headers=headers,
-                verify=ca_path if ca_path != "" else True,
+                verify=verify_setting,
             )
         resp.raise_for_status()  # Raise an exception for 4xx or 5xx errors
         return resp
@@ -104,8 +124,16 @@ def call_api_v2(
         raise
 
 
-def download_file(url: str, filepath: str, ca_path: str = ""):
-    with requests.get(url, stream=True, verify=ca_path if ca_path != "" else True) as r:
+def download_file(url: str, filepath: str, ca_path: str = "", skip_tls_verification: bool = False):
+    # Determine SSL verification setting
+    if skip_tls_verification:
+        verify_setting = False
+    elif ca_path != "":
+        verify_setting = ca_path
+    else:
+        verify_setting = True
+    
+    with requests.get(url, stream=True, verify=verify_setting) as r:
         with open(filepath, "wb") as f:
             shutil.copyfileobj(r.raw, f)
 
