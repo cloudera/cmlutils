@@ -130,6 +130,45 @@ def get_ignore_files(
             raise e
 
 
+def get_importignore_file(top_level_dir: str, project_name: str) -> str:
+    """
+    Fetch or create .importignore file for the project.
+    """
+    importignore_path = os.path.join(
+        top_level_dir, project_name, "project-data", constants.IMPORTIGNORE_FILE_NAME
+    )
+    
+    if os.path.exists(importignore_path):
+        logging.info("Using existing .importignore file: %s", importignore_path)
+        return importignore_path
+    
+    # Create default .importignore file
+    logging.info(
+        "Import ignore file does not exist. Creating .importignore file."
+    )
+    
+    with open(importignore_path, "w", encoding=utf_8.getregentry().name) as f:
+        for entry in constants.DEFAULT_IMPORTIGNORE_ENTRIES:
+            f.write(entry + "\n")
+    
+    os.chmod(importignore_path, 0o600)
+    logging.info("Created .importignore file at: %s", importignore_path)
+    
+    return importignore_path
+
+
+def parse_rsync_errors_from_output(stderr_output: str) -> list:
+    """Find lines with read-only file system errors."""
+    if not stderr_output:
+        return []
+    
+    error_lines = []
+    for line in stderr_output.split('\n'):
+        if "Read-only file system" in line:
+            error_lines.append(line.strip())
+    
+    return error_lines
+
 def get_rsync_enabled_runtime_id(host: str, api_key: str, ca_path: str) -> int:
     runtime_list = get_cdsw_runtimes(host=host, api_key=api_key, ca_path=ca_path)
     for runtime in runtime_list:
@@ -157,6 +196,7 @@ def transfer_project_files(
     project_name: str,
     log_filedir: str,
     exclude_file_path: str = None,
+    importignore_path: str = None,
 ):
     log_filename = log_filedir + constants.LOG_FILE
     logging.info("Transfering files over ssh from sshport %s", sshport)
@@ -174,20 +214,49 @@ def transfer_project_files(
         "--log-file",
         log_filename,
     ]
+    
+    # Add importignore exclusions if provided
+    if importignore_path is not None and os.path.exists(importignore_path):
+        logging.info("Using .importignore file for exclusions: %s", importignore_path)
+        subprocess_arguments.append(f"--exclude-from={importignore_path}")
+
     if exclude_file_path is not None:
         logging.info("Exclude file path is provided for file transfer")
         subprocess_arguments.append(f"--exclude-from={exclude_file_path}")
     subprocess_arguments.extend([source, destination])
+    
+    return_code = 0
+    last_stderr = ""
+    
     for i in range(retry_limit):
-        return_code = subprocess.call(subprocess_arguments)
+        result = subprocess.run(
+            subprocess_arguments,
+            stderr=subprocess.PIPE,
+            text=True
+        )
+        return_code = result.returncode
+        last_stderr = result.stderr or ""
+        
         if return_code == 0:
             logging.info("Project files transfered successfully")
             return
         logging.warning("Got non zero return code. Retrying...")
     if return_code != 0:
-        logging.error(
-            "Retries exhausted for rsync.. Failing script for project %s", project_name
-        )
+        # Parse last stderr for read-only errors
+        readonly_errors = parse_rsync_errors_from_output(last_stderr)
+        
+        if readonly_errors:
+            logging.error("Retries exhausted for rsync.. Failing script for project %s", project_name)
+            logging.error("RSYNC FAILED: Read-only file system errors detected")
+            logging.error("Error details:")
+            for error_line in readonly_errors[:5]:
+                logging.error("  %s", error_line)
+            if importignore_path:
+                logging.error("")
+                logging.error("Verify the files, add them to: %s if there are any read-only file system errors to exclude the verification during import. Retry the import after adding the files", importignore_path)
+        else:
+            logging.error("Retries exhausted for rsync.. Failing script for project %s", project_name)
+
         raise RuntimeError("Retries exhausted for rsync.. Failing script")
 
 
@@ -199,6 +268,7 @@ def verify_files(
     project_name: str,
     log_filedir: str,
     exclude_file_path: str = None,
+    importignore_path: str = None,
 ):
     log_filename = log_filedir + constants.LOG_FILE
     logging.info("Validating files over ssh from sshport %s", sshport)
@@ -217,6 +287,11 @@ def verify_files(
         "--log-file",
         log_filename,
     ]
+    
+    # Add importignore exclusions if provided
+    if importignore_path is not None and os.path.exists(importignore_path):
+        subprocess_arguments.append(f"--exclude-from={importignore_path}")
+    
     if exclude_file_path is not None:
         logging.info("Exclude file path is provided for file Verification")
         subprocess_arguments.append(f"--exclude-from={exclude_file_path}")
@@ -541,6 +616,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             exclude_file_path=exclude_file_path,
             log_filedir=log_filedir,
+            importignore_path=None,
         )
         self.remove_cdswctl_dir(cdswctl_path)
         self.terminate_ssh_session()
@@ -600,6 +676,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             exclude_file_path=exclude_file_path,
             log_filedir=log_filedir,
+            importignore_path=None,
         )
         self.remove_cdswctl_dir(cdswctl_path)
         self.terminate_ssh_session()
@@ -987,6 +1064,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             project_slug=self.project_slug,
         )
         self._ssh_subprocess = ssh_subprocess
+        
+        # Get importignore file (create if doesn't exist)
+        importignore_path = get_importignore_file(self.top_level_dir, self.project_name)
+        
         transfer_project_files(
             sshport=port,
             source=os.path.join(
@@ -999,6 +1080,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             retry_limit=3,
             project_name=self.project_name,
             log_filedir=log_filedir,
+            importignore_path=importignore_path,
         )
         if verify:
             result = verify_files(
@@ -1013,6 +1095,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 retry_limit=3,
                 project_name=self.project_name,
                 log_filedir=log_filedir,
+                importignore_path=importignore_path,
             )
         self.remove_cdswctl_dir(cdswctl_path)
         return result
