@@ -17,11 +17,13 @@ BASE_PATH_CDSWCTL = "/tmp/cdswctls"
 DEFAULT_ENTRIES = [".cache", ".local"]
 DEFAULT_IMPORTIGNORE_ENTRIES = [".snapshot", ".snapshot/"]
 USERNAME_KEY = "username"
+PROJECT_OWNER_USERNAME_KEY = "owner_username"
 URL_KEY = "url"
 API_V1_KEY = "apiv1_key"
 OUTPUT_DIR_KEY = "output_dir"
 PROJECT_NAME_KEY = "project_name"
 CA_PATH_KEY = "ca_path"
+SKIP_TLS_VERIFICATION_KEY = "skip_tls_verification"
 MAX_API_PAGE_LENGTH = 30
 
 
@@ -46,19 +48,19 @@ class ApiV2Endpoints(Enum):
 
 
 class ApiV1Endpoints(Enum):
-    PROJECT = "api/v1/projects/$username/$project_name"
-    PROJECT_ENV = "api/v1/projects/$username/$project_name/environment"
-    PROJECT_FILE = "api/v1/projects/$username/$project_name/files/$filename"
+    PROJECT = "api/v1/projects/$owner/$project_name"
+    PROJECT_ENV = "api/v1/projects/$owner/$project_name/environment"
+    PROJECT_FILE = "api/v1/projects/$owner/$project_name/files/$filename"
     MODELS_LIST = "/api/altus-ds-1/models/list-models"
-    JOBS_LIST = "/api/v1/projects/$username/$project_name/jobs"
-    APPS_LIST = "/api/v1/projects/$username/$project_name/applications"
+    JOBS_LIST = "/api/v1/projects/$owner/$project_name/jobs"
+    APPS_LIST = "/api/v1/projects/$owner/$project_name/applications"
     MODEL_INFO = "/api/altus-ds-1/models/get-model"
-    JOB_INFO = "/api/v1/projects/$username/$project_name/jobs/$job_id"
-    APP_INFO = "/api/v1/projects/$username/$project_name/applications/$app_id"
+    JOB_INFO = "/api/v1/projects/$owner/$project_name/jobs/$job_id"
+    APP_INFO = "/api/v1/projects/$owner/$project_name/applications/$app_id"
     API_KEY = "/api/v1/users/$username/apikey"
     RUNTIMES = "/api/v1/runtimes"
     USER_INFO = "/api/v1/users/$username"
-    PROJECTS_SUMMARY = "/api/v1/users/$username/projects-summary?all=true&context=$username&sortColumn=updated_at&projectName=$projectName&limit=$limit&offset=$offset"
+    PROJECTS_SUMMARY = "/api/v1/users/$username/projects-summary?all=true&scope=all&context=$username&sortColumn=updated_at&projectName=$projectName&limit=$limit&offset=$offset"
 
 
 """Mapping of old fields v1 to new fields of v2"""

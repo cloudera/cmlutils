@@ -23,11 +23,11 @@ def _get_cdswctl_download_url(host: str) -> str:
     return final_url
 
 
-def _download_and_extract(url: str, ca_path: str):
+def _download_and_extract(url: str, ca_path: str, skip_tls_verification: bool = False):
     file_name = url.split("/")[-1]
     dir_path = _cdswctl_tmp_dir_path()
     file_path = os.path.join(dir_path, file_name)
-    download_file(url=url, filepath=file_path, ca_path=ca_path)
+    download_file(url=url, filepath=file_path, ca_path=ca_path, skip_tls_verification=skip_tls_verification)
     if Path(constants.BASE_PATH_CDSWCTL) in Path(dir_path).parents:
         tf = tarfile.open(file_path)
         tf.extractall(dir_path)
@@ -51,9 +51,9 @@ def _cdswctl_tmp_dir_path() -> str:
     return dirpath
 
 
-def obtain_cdswctl(host: str, ca_path: str) -> str:
+def obtain_cdswctl(host: str, ca_path: str, skip_tls_verification: bool = False) -> str:
     file_url = _get_cdswctl_download_url(host)
-    expected_cdswctl_path = _download_and_extract(file_url, ca_path=ca_path)
+    expected_cdswctl_path = _download_and_extract(file_url, ca_path=ca_path, skip_tls_verification=skip_tls_verification)
     logging.info(
         "Expected cdsw path for cdswctl for file transfer %s", expected_cdswctl_path
     )
@@ -62,6 +62,5 @@ def obtain_cdswctl(host: str, ca_path: str) -> str:
 
 def cdswctl_login(cdswctl_path: str, host: str, username: str, api_key: str):
     logging.info("Logging into cdsw via cdswctl")
-    return subprocess.run(
-        [cdswctl_path, "login", "-n", username, "-u", host, "-y", api_key]
-    )
+    command = [cdswctl_path, "login", "-n", username, "-u", host, "-y", api_key]
+    return subprocess.run(command)
