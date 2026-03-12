@@ -16,6 +16,8 @@ BATCH_SIZE = 10
 
 # This variable controls if user want to trigger migration validation automatically after import
 # NOTE: Migration validation is resource intensive task keep the BATCH_SIZE to optimal size
+
+# DO NOT ENABLE this flag
 VERIFY = False
 
 
@@ -39,7 +41,10 @@ def get_absolute_path(path: str) -> str:
 
 
 def import_validate(project_name: str):
-    output_dir = _read_config_file((os.path.expanduser("~") + "/.cmlutils/import-config.ini"),
+    # Change the ini location as per the convenience
+    ini_location = "/.cmlutils/import-config.ini"
+
+    output_dir = _read_config_file((os.path.expanduser("~") + ini_location),
                             project_name)
     import_metrics_file_path = os.path.join(get_absolute_path(output_dir[OUTPUT_DIR_KEY]), project_name, IMPORT_METRIC_FILE)
 
@@ -85,9 +90,12 @@ def _get_project_list(file_path: str):
 
 
 def main():
-    failed_validation_list = list()
+
+    # Change the ini location as per the convenience
+    ini_location = "/.cmlutils/import-config.ini"
+
     project_names = _get_project_list(
-        os.path.expanduser("~") + "/.cmlutils/import-config.ini"
+        os.path.expanduser("~") + ini_location
     )
     project_iter = []
 
@@ -100,8 +108,9 @@ def main():
         # call a function on each item in a list
         pool.starmap(import_project, project_iter)
 
-    # validation summary if VERIFY=True
+    # Please DO NOT enable this feature.
     if VERIFY:
+        failed_validation_list = list()
         for project in project_names:
             result = import_validate(project)
             if not result:

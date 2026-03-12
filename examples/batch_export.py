@@ -33,8 +33,12 @@ def _get_project_list(file_path: str):
 
 
 def main():
+
+    # Change the ini location as per the convenience
+    ini_location = "/.cmlutils/export-config.ini"
+
     project_names = _get_project_list(
-        os.path.expanduser("~") + "/.cmlutils/export-config.ini"
+        os.path.expanduser("~") + ini_location
     )
     print(project_names)
     project_iter = []
