@@ -1,12 +1,20 @@
 import logging
 import signal
+import socket
 import subprocess
 import time
+
+
+def _find_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind(("", 0))
+        return s.getsockname()[1]
 
 
 def open_ssh_endpoint(
     cdswctl_path: str, project_name: str, runtime_id: int, project_slug: str
 ) -> tuple[subprocess.Popen, int]:
+    local_port = _find_free_port()
     command = [
         cdswctl_path,
         "ssh-endpoint",
@@ -16,6 +24,8 @@ def open_ssh_endpoint(
         "1.0",
         "-m",
         "0.5",
+        "--port",
+        str(local_port),
     ]
     if runtime_id != -1:
         command.append("-r")
