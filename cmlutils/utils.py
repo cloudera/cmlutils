@@ -26,7 +26,6 @@ def call_api_v1(
 
     url = urllib.parse.urljoin(host, endpoint)
 
-    # Check if verbose mode is enabled
     verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
     
     if verbose:
@@ -82,7 +81,6 @@ def call_api_v1(
             if resp.headers.get("content-type", "").startswith("application/json"):
                 try:
                     response_data = resp.json()
-                    # Log only first few lines of response to avoid overwhelming logs
                     response_str = json.dumps(response_data, indent=2)
                     if len(response_str) > 1000:
                         response_str = response_str[:1000] + "... (truncated)"

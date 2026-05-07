@@ -39,7 +39,6 @@ def _configure_project_command_logging(log_filedir: str, project_name: str, verb
     os.makedirs(name=log_filedir, exist_ok=True)
     log_filename = log_filedir + constants.LOG_FILE
 
-    # Set log level based on verbose flag
     log_level = logging.DEBUG if verbose else logging.INFO
 
     logging.basicConfig(
@@ -84,7 +83,7 @@ def _read_config_file(file_path: str, project_name: str):
         try:
             apiv1_key = config.get(project_name, API_V1_KEY)
         except NoOptionError:
-            pass  # V1 key is optional
+            pass
         
         if not apiv1_key:
             print("Error: Must provide %s in config file." % (API_V1_KEY))

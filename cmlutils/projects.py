@@ -276,7 +276,6 @@ def transfer_project_files(
 
         logging.warning("Got non zero return code. Retrying...")
     if return_code != 0:
-        # Parse last stderr for read-only errors
         readonly_errors = parse_rsync_errors_from_output(last_stderr)
         
         if readonly_errors:
@@ -1064,7 +1063,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.top_level_dir = top_level_dir
         super().__init__(host, username, project_name, api_key, ca_path, project_slug, skip_tls_verification)
         self.metrics_data = dict()
-        # Track import outcomes for applications
         self.import_tracking = {
             "apps_imported_successfully": [],
             "apps_removed_from_manifest": [],
@@ -1658,7 +1656,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if verbose:
                 logging.debug("Project configured with runtimes: %s", proj_with_runtime)
             
-            # Initialize model tracking
             if "models_imported_successfully" not in self.import_tracking:
                 self.import_tracking["models_imported_successfully"] = []
             if "models_created_without_build" not in self.import_tracking:
@@ -1682,7 +1679,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                         runtime_available = False
                         used_fallback = False
                         
-                        # Check if required runtime exists in target
                         if required_runtime and proj_with_runtime:
                             runtime_available = any(
                                 r.get("image_identifier") == required_runtime
@@ -1693,7 +1689,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                 logging.warning(
                                     f"⚠️  Model '{model_name}' requires runtime '{required_runtime}' which is not available"
                                 )
-                                # Try to find fallback runtime
                                 if all(k in model_metadata for k in ["runtime_edition", "runtime_editor", "runtime_kernel"]):
                                     fallback_runtime = get_best_runtime(
                                         runtime_list["runtimes"],
@@ -1730,7 +1725,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                     "Couldn't locate runtime identifier for model %s",
                                     model_metadata["name"],
                                 )
-                                # Try first available runtime
                                 if runtime_list.get("runtimes"):
                                     first_runtime = runtime_list["runtimes"][0].get("image_identifier")
                                     if first_runtime:
@@ -1752,7 +1746,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                             if verbose:
                                 logging.debug("Created model with ID: %s, attempting build...", model_id)
                             
-                            # Try to create build, but don't crash if it fails
                             build_created = False
                             if model_metadata.get("runtime_identifier"):
                                 try:
@@ -1834,7 +1827,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
         except Exception as e:
             logging.error("Model migration failed")
             logging.error(f"Error: {e}")
-            # Don't raise - log the error and continue with jobs
             logging.info("Continuing with remaining imports despite model errors...")
             return
 
@@ -1926,7 +1918,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 skip_tls_verification=self.skip_tls_verification,
             )
             
-            # Initialize job tracking
             if "jobs_imported_successfully" not in self.import_tracking:
                 self.import_tracking["jobs_imported_successfully"] = []
             if "jobs_created_with_fallback" not in self.import_tracking:
@@ -1952,7 +1943,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                         runtime_available = False
                         used_fallback = False
                         
-                        # Check if required runtime exists in target
                         if required_runtime and proj_with_runtime:
                             runtime_available = any(
                                 r.get("image_identifier") == required_runtime
@@ -1963,7 +1953,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                 logging.warning(
                                     f"⚠️  Job '{job_name}' requires runtime '{required_runtime}' which is not available"
                                 )
-                                # Try to find fallback runtime
                                 if all(k in job_metadata for k in ["runtime_edition", "runtime_editor", "runtime_kernel"]):
                                     fallback_runtime = get_best_runtime(
                                         runtime_list["runtimes"],
@@ -1998,7 +1987,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                             if runtime_identifier != None:
                                 job_metadata["runtime_identifier"] = runtime_identifier
                             else:
-                                # Try first available runtime
                                 if runtime_list.get("runtimes"):
                                     first_runtime = runtime_list["runtimes"][0].get("image_identifier")
                                     if first_runtime:
@@ -2006,7 +1994,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                         job_metadata["runtime_identifier"] = first_runtime
                                         used_fallback = True
                         
-                        # Fix environment field - API expects JSON object, not string
                         if "environment" in job_metadata and isinstance(job_metadata["environment"], str):
                             try:
                                 job_metadata["environment"] = json.loads(job_metadata["environment"])
@@ -2083,7 +2070,6 @@ class ProjectImporter(BaseWorkspaceInteractor):
         except Exception as e:
             logging.error("Job migration failed")
             logging.error(f"Error: {e}")
-            # Don't raise - log the error and continue
             logging.info("Continuing despite job errors...")
             return
 
