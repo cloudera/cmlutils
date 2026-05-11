@@ -206,17 +206,17 @@ def get_best_runtime(json_list, edition, editor, kernel, short_version, full_ver
             and "edition" in json_obj
             and "editor" in json_obj
             and "shortVersion" in json_obj
-            and "fullVersion" in json_obj
+            and "full_version" in json_obj
         ):
             if (
                 json_obj["kernel"] == kernel
                 and json_obj["edition"] == edition
                 and json_obj["editor"] == editor
                 and json_obj["shortVersion"] == short_version
-                and json_obj["fullVersion"] == full_version
+                and json_obj["full_version"] == full_version
             ):
-                if "imageIdentifier" in json_obj:
-                    return json_obj["imageIdentifier"]
+                if "image_identifier" in json_obj:
+                    return json_obj["image_identifier"]
 
     # Best match with four criteria matching
     for json_obj in json_list:
@@ -232,8 +232,8 @@ def get_best_runtime(json_list, edition, editor, kernel, short_version, full_ver
                 and json_obj["editor"] == editor
                 and json_obj["shortVersion"] == short_version
             ):
-                if "imageIdentifier" in json_obj:
-                    return json_obj["imageIdentifier"]
+                if "image_identifier" in json_obj:
+                    return json_obj["image_identifier"]
 
     # If not Atleast three criterias are matching
     for json_obj in json_list:
@@ -243,22 +243,22 @@ def get_best_runtime(json_list, edition, editor, kernel, short_version, full_ver
                 and json_obj["edition"] == edition
                 and json_obj["editor"] == editor
             ):
-                if "imageIdentifier" in json_obj:
-                    return json_obj["imageIdentifier"]
+                if "image_identifier" in json_obj:
+                    return json_obj["image_identifier"]
 
     # If not atleast two criteria kernel and editor are matching
     for json_obj in json_list:
         if "kernel" in json_obj and "edition" in json_obj:
             if json_obj["kernel"] == kernel and json_obj["editor"] == editor:
-                if "imageIdentifier" in json_obj:
-                    return json_obj["imageIdentifier"]
+                if "image_identifier" in json_obj:
+                    return json_obj["image_identifier"]
 
     # If not atleast kernel is matching
     for json_obj in json_list:
         if "kernel" in json_obj:
             if json_obj["kernel"] == kernel:
-                if "imageIdentifier" in json_obj:
-                    return json_obj["imageIdentifier"]
+                if "image_identifier" in json_obj:
+                    return json_obj["image_identifier"]
 
     return None
 

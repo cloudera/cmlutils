@@ -271,7 +271,7 @@ def project_import_cmd(project_name, verify, verbose):
     ca_path = config[CA_PATH_KEY]
     skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
     local_directory = get_absolute_path(local_directory)
-    # ca_path = get_absolute_path(ca_path)
+    ca_path = get_absolute_path(ca_path)
     log_filedir = os.path.join(local_directory, project_name, "logs")
 
     _configure_project_command_logging(log_filedir, project_name, verbose)

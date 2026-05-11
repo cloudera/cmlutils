@@ -1850,8 +1850,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             app_metadata_list = read_json_file(app_metadata_filepath)
             if app_metadata_list != None:
                 if verbose:
-                    logging.debug("Found %d applications to import", len(app_metadata_filepath))
-
+                    logging.debug("Found %d applications to import", len(app_metadata_list))
                 for app_metadata in app_metadata_list:
                     if not self.check_app_exist(
                         subdomain=app_metadata["subdomain"], proj_id=project_id
