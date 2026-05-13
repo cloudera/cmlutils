@@ -1681,7 +1681,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                         
                         if required_runtime and proj_with_runtime:
                             runtime_available = any(
-                                r.get("image_identifier") == required_runtime
+                                r.get("imageIdentifier") == required_runtime
                                 for r in runtime_list.get("runtimes", [])
                             )
                             
@@ -1726,7 +1726,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                     model_metadata["name"],
                                 )
                                 if runtime_list.get("runtimes"):
-                                    first_runtime = runtime_list["runtimes"][0].get("image_identifier")
+                                    first_runtime = runtime_list["runtimes"][0].get("imageIdentifier")
                                     if first_runtime:
                                         logging.info(f"Using first available runtime for model '{model_name}': {first_runtime}")
                                         model_metadata["runtime_identifier"] = first_runtime
@@ -1944,7 +1944,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                         
                         if required_runtime and proj_with_runtime:
                             runtime_available = any(
-                                r.get("image_identifier") == required_runtime
+                                r.get("imageIdentifier") == required_runtime
                                 for r in runtime_list.get("runtimes", [])
                             )
                             
@@ -1987,7 +1987,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                 job_metadata["runtime_identifier"] = runtime_identifier
                             else:
                                 if runtime_list.get("runtimes"):
-                                    first_runtime = runtime_list["runtimes"][0].get("image_identifier")
+                                    first_runtime = runtime_list["runtimes"][0].get("imageIdentifier")
                                     if first_runtime:
                                         logging.info(f"Using first available runtime for job '{job_name}': {first_runtime}")
                                         job_metadata["runtime_identifier"] = first_runtime
