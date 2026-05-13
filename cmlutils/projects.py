@@ -217,7 +217,15 @@ def transfer_project_files(
     importignore_path: str = None,
 ):
     log_filename = log_filedir + constants.LOG_FILE
+    verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
     logging.info("Transfering files over ssh from sshport %s", sshport)
+
+    if verbose:
+        logging.debug("Transfer details - Source: %s, Destination: %s, SSH Port: %s", 
+                     source, destination, sshport)
+        logging.debug("Using exclude file: %s", exclude_file_path if exclude_file_path else "None")
+        logging.debug("Retry limit set to: %d", retry_limit)
+
     ssh_directive = f"ssh -p {sshport} -oStrictHostKeyChecking=no"
     subprocess_arguments = [
         "rsync",
@@ -254,13 +262,20 @@ def transfer_project_files(
         )
         return_code = result.returncode
         last_stderr = result.stderr or ""
+
+        if verbose:
+            logging.debug("Rsync attempt %d of %d", i + 1, retry_limit)
+            logging.debug("Executing rsync command: %s", " ".join(subprocess_arguments))
         
         if return_code == 0:
             logging.info("Project files transfered successfully")
             return
+        
+        if verbose:
+            logging.debug("Rsync attempt %d failed with return code %d", i + 1, return_code)
+
         logging.warning("Got non zero return code. Retrying...")
     if return_code != 0:
-        # Parse last stderr for read-only errors
         readonly_errors = parse_rsync_errors_from_output(last_stderr)
         
         if readonly_errors:
@@ -712,8 +727,17 @@ class ProjectExporter(BaseWorkspaceInteractor):
         filepath = get_project_metadata_file_path(
             top_level_dir=self.top_level_dir, project_name=self.project_name
         )
-        logging.info("Exporting project metadata to path %s", filepath)
+        logging.info("Exporting models metadata to path %s", filepath)
+
+        verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
+        if verbose:
+            logging.debug("Fetching project information for project: %s", self.project_name)
+            
         project_info_resp = self.get_project_infov1()
+
+        if verbose:
+            logging.debug("Fetching project environment variables for project: %s", self.project_name)
+
         project_env = self.get_project_env()
         if "CDSW_APP_POLLING_ENDPOINT" not in project_env:
             project_env["CDSW_APP_POLLING_ENDPOINT"] = "."
@@ -747,6 +771,12 @@ class ProjectExporter(BaseWorkspaceInteractor):
             top_level_dir=self.top_level_dir, project_name=self.project_name
         )
         logging.info("Exporting models metadata to path %s", filepath)
+
+        verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
+        if verbose:
+            logging.debug("Fetching models list for project: %s (project_id: %s)", 
+                         self.project_name, self.project_id)
+            
         model_list = self.get_models_listv1(project_id=self.project_id)
         model_name_list = []
         if len(model_list) == 0:
@@ -811,6 +841,11 @@ class ProjectExporter(BaseWorkspaceInteractor):
             top_level_dir=self.top_level_dir, project_name=self.project_name
         )
         logging.info("Exporting application metadata to path %s", filepath)
+
+        verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
+        if verbose:
+            logging.debug("Fetching application list for project: %s (project_id: %s)", self.project_name, self.project_id)
+            
         app_list = self.get_app_listv1()
         app_name_list = []
         if len(app_list) == 0:
@@ -903,6 +938,11 @@ class ProjectExporter(BaseWorkspaceInteractor):
             top_level_dir=self.top_level_dir, project_name=self.project_name
         )
         logging.info("Exporting job metadata to path %s ", filepath)
+
+        verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
+        if verbose:
+            logging.debug("Fetching job list for project: %s (project_id: %s)", self.project_name, self.project_id)
+
         job_list = self.get_jobs_listv1()
         if len(job_list) == 0:
             logging.info("Jobs are not present in the project %s.", self.project_name)
@@ -1023,6 +1063,12 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.top_level_dir = top_level_dir
         super().__init__(host, username, project_name, api_key, ca_path, project_slug, skip_tls_verification)
         self.metrics_data = dict()
+        self.import_tracking = {
+            "apps_imported_successfully": [],
+            "apps_removed_from_manifest": [],
+            "apps_skipped": [],
+            "apps_imported_with_fallback": []
+        }
 
     def get_creator_username(self):
         next_page_exists = True
@@ -1591,6 +1637,11 @@ class ProjectImporter(BaseWorkspaceInteractor):
 
     def create_models(self, project_id: str, models_metadata_filepath: str):
         try:
+            verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
+            if verbose:
+                logging.debug("Starting model creation process for project_id: %s", project_id)
+                logging.debug("Reading models metadata from: %s", models_metadata_filepath)
+            
             runtime_list = self.get_all_runtimes()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
@@ -1601,13 +1652,58 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 project_slug=self.project_slug,
                 skip_tls_verification=self.skip_tls_verification,
             )
+            
+            if verbose:
+                logging.debug("Project configured with runtimes: %s", proj_with_runtime)
+            
+            if "models_imported_successfully" not in self.import_tracking:
+                self.import_tracking["models_imported_successfully"] = []
+            if "models_created_without_build" not in self.import_tracking:
+                self.import_tracking["models_created_without_build"] = []
+            if "models_imported_with_fallback" not in self.import_tracking:
+                self.import_tracking["models_imported_with_fallback"] = []
+            
             model_metadata_list = read_json_file(models_metadata_filepath)
             if model_metadata_list != None:
+                if verbose:
+                    logging.debug("Found %d models to import", len(model_metadata_list))
+                
                 for model_metadata in model_metadata_list:
+                    model_name = model_metadata.get("name", "unknown")
+                    
                     if not self.check_model_exist(
                         model_name=model_metadata["name"], proj_id=project_id
                     ):
                         model_metadata["project_id"] = project_id
+                        required_runtime = model_metadata.get("runtime_identifier", None)
+                        runtime_available = False
+                        used_fallback = False
+                        
+                        if required_runtime and proj_with_runtime:
+                            runtime_available = any(
+                                r.get("imageIdentifier") == required_runtime
+                                for r in runtime_list.get("runtimes", [])
+                            )
+                            
+                            if not runtime_available:
+                                logging.warning(
+                                    f"⚠️  Model '{model_name}' requires runtime '{required_runtime}' which is not available"
+                                )
+                                if all(k in model_metadata for k in ["runtime_edition", "runtime_editor", "runtime_kernel"]):
+                                    fallback_runtime = get_best_runtime(
+                                        runtime_list["runtimes"],
+                                        model_metadata["runtime_edition"],
+                                        model_metadata["runtime_editor"],
+                                        model_metadata["runtime_kernel"],
+                                        model_metadata.get("runtime_shortversion", ""),
+                                        model_metadata.get("runtime_fullversion", ""),
+                                    )
+                                    if fallback_runtime:
+                                        logging.info(f"Using fallback runtime for model '{model_name}': {fallback_runtime}")
+                                        model_metadata["runtime_identifier"] = fallback_runtime
+                                        used_fallback = True
+                                        runtime_available = True
+                        
                         if (
                             not "runtime_identifier" in model_metadata
                             and proj_with_runtime
@@ -1629,29 +1725,95 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                     "Couldn't locate runtime identifier for model %s",
                                     model_metadata["name"],
                                 )
-                                logging.info(
-                                    "Applying default runtime %s",
-                                    legacy_engine_runtime_constants.engine_to_runtime_map().get(
-                                        "default"
-                                    ),
-                                )
-                                model_metadata[
-                                    "runtime_identifier"
-                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
-                                    "default"
-                                )
-                        model_id = self.create_model_v2(
-                            proj_id=project_id, model_metadata=model_metadata
-                        )
-                        self.create_model_build_v2(
-                            proj_id=project_id,
-                            model_id=model_id,
-                            model_metadata=model_metadata,
-                        )
-                        logging.info(
-                            "Model- %s has been migrated successfully",
-                            model_metadata["name"],
-                        )
+                                if runtime_list.get("runtimes"):
+                                    first_runtime = runtime_list["runtimes"][0].get("imageIdentifier")
+                                    if first_runtime:
+                                        logging.info(f"Using first available runtime for model '{model_name}': {first_runtime}")
+                                        model_metadata["runtime_identifier"] = first_runtime
+                                        used_fallback = True
+                                    else:
+                                        logging.warning(f"No runtimes available, skipping build for model '{model_name}'")
+                                        model_metadata["runtime_identifier"] = None
+                        
+                        if verbose:
+                            logging.debug("Creating model: %s", model_metadata["name"])
+                        
+                        try:
+                            model_id = self.create_model_v2(
+                                proj_id=project_id, model_metadata=model_metadata
+                            )
+                            
+                            if verbose:
+                                logging.debug("Created model with ID: %s, attempting build...", model_id)
+                            
+                            build_created = False
+                            if model_metadata.get("runtime_identifier"):
+                                try:
+                                    self.create_model_build_v2(
+                                        proj_id=project_id,
+                                        model_id=model_id,
+                                        model_metadata=model_metadata,
+                                    )
+                                    build_created = True
+                                    
+                                    if used_fallback:
+                                        logging.info(f"✅ Model '{model_name}' created with fallback runtime")
+                                        self.import_tracking["models_imported_with_fallback"].append({
+                                            "name": model_name,
+                                            "required_runtime": required_runtime,
+                                            "fallback_runtime": model_metadata["runtime_identifier"],
+                                            "action": "Verify model functionality with the fallback runtime"
+                                        })
+                                    else:
+                                        logging.info(f"✅ Model '{model_name}' migrated successfully")
+                                        self.import_tracking["models_imported_successfully"].append({
+                                            "name": model_name,
+                                            "runtime": model_metadata.get("runtime_identifier", "default")
+                                        })
+                                
+                                except HTTPError as e:
+                                    error_message = str(e)
+                                    if hasattr(e, 'response') and e.response is not None:
+                                        try:
+                                            error_json = e.response.json()
+                                            error_message = error_json.get("message") or error_json.get("error") or str(e)
+                                        except:
+                                            pass
+                                    
+                                    logging.warning(f"⚠️  Failed to create build for model '{model_name}': {error_message}")
+                                    logging.info(f"Model '{model_name}' created but without build - manual intervention required")
+                                    self.import_tracking["models_created_without_build"].append({
+                                        "name": model_name,
+                                        "runtime": required_runtime or "unknown",
+                                        "reason": f"Build creation failed: {error_message}",
+                                        "action": "Manually rebuild the model in CML UI with an appropriate runtime"
+                                    })
+                            else:
+                                logging.info(f"⚠️  Model '{model_name}' created without build (no runtime available)")
+                                self.import_tracking["models_created_without_build"].append({
+                                    "name": model_name,
+                                    "runtime": required_runtime or "unknown",
+                                    "reason": "No suitable runtime available in target workspace",
+                                    "action": "Manually rebuild the model in CML UI after adding the required runtime"
+                                })
+                        
+                        except HTTPError as e:
+                            error_message = str(e)
+                            if hasattr(e, 'response') and e.response is not None:
+                                try:
+                                    error_json = e.response.json()
+                                    error_message = error_json.get("message") or error_json.get("error") or str(e)
+                                except:
+                                    pass
+                            
+                            logging.error(f"Failed to create model '{model_name}': {error_message}")
+                            self.import_tracking["models_created_without_build"].append({
+                                "name": model_name,
+                                "runtime": required_runtime or "unknown",
+                                "reason": f"Model creation failed: {error_message}",
+                                "action": "Manually recreate the model in CML UI"
+                            })
+                            continue
                     else:
                         logging.info(
                             "Skipping the already existing model- %s",
@@ -1665,10 +1827,16 @@ class ProjectImporter(BaseWorkspaceInteractor):
         except Exception as e:
             logging.error("Model migration failed")
             logging.error(f"Error: {e}")
-            raise
+            logging.info("Continuing with remaining imports despite model errors...")
+            return
 
     def create_stoppped_applications(self, project_id: str, app_metadata_filepath: str):
         try:
+            verbose = os.environ.get('CMLUTILS_VERBOSE', 'False').lower() == 'true'
+            if verbose:
+                logging.debug("Starting application creation process for project_id: %s", project_id)
+                logging.debug("Reading application metadata from: %s", app_metadata_filepath)
+
             runtime_list = self.get_all_runtimes()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
@@ -1681,6 +1849,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
             )
             app_metadata_list = read_json_file(app_metadata_filepath)
             if app_metadata_list != None:
+                if verbose:
+                    logging.debug("Found %d applications to import", len(app_metadata_list))
                 for app_metadata in app_metadata_list:
                     if not self.check_app_exist(
                         subdomain=app_metadata["subdomain"], proj_id=project_id
@@ -1706,6 +1876,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
                                 ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
                                     "default"
                                 )
+
+                        if verbose:
+                            logging.debug("Creating application: %s", app_metadata["name"])
                         app_id = self.create_application_v2(
                             proj_id=project_id, app_metadata=app_metadata
                         )
@@ -1743,11 +1916,20 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 project_slug=self.project_slug,
                 skip_tls_verification=self.skip_tls_verification,
             )
+            
+            if "jobs_imported_successfully" not in self.import_tracking:
+                self.import_tracking["jobs_imported_successfully"] = []
+            if "jobs_created_with_fallback" not in self.import_tracking:
+                self.import_tracking["jobs_created_with_fallback"] = []
+            if "jobs_skipped" not in self.import_tracking:
+                self.import_tracking["jobs_skipped"] = []
+            
             job_metadata_list = read_json_file(job_metadata_filepath)
             src_tgt_job_mapping = {}
             # Create job in target CML workspace.
             if job_metadata_list != None:
                 for job_metadata in job_metadata_list:
+                    job_name = job_metadata.get("name", "unknown")
                     target_job_id = self.check_job_exist(
                         job_name=job_metadata["name"],
                         script=job_metadata["script"],
@@ -1756,6 +1938,35 @@ class ProjectImporter(BaseWorkspaceInteractor):
                     if target_job_id == None:
                         job_metadata["project_id"] = project_id
                         job_metadata["paused"] = True
+                        required_runtime = job_metadata.get("runtime_identifier", None)
+                        runtime_available = False
+                        used_fallback = False
+                        
+                        if required_runtime and proj_with_runtime:
+                            runtime_available = any(
+                                r.get("imageIdentifier") == required_runtime
+                                for r in runtime_list.get("runtimes", [])
+                            )
+                            
+                            if not runtime_available:
+                                logging.warning(
+                                    f"⚠️  Job '{job_name}' requires runtime '{required_runtime}' which is not available"
+                                )
+                                if all(k in job_metadata for k in ["runtime_edition", "runtime_editor", "runtime_kernel"]):
+                                    fallback_runtime = get_best_runtime(
+                                        runtime_list["runtimes"],
+                                        job_metadata["runtime_edition"],
+                                        job_metadata["runtime_editor"],
+                                        job_metadata["runtime_kernel"],
+                                        job_metadata.get("runtime_shortversion", ""),
+                                        job_metadata.get("runtime_fullversion", ""),
+                                    )
+                                    if fallback_runtime:
+                                        logging.info(f"Using fallback runtime for job '{job_name}': {fallback_runtime}")
+                                        job_metadata["runtime_identifier"] = fallback_runtime
+                                        used_fallback = True
+                                        runtime_available = True
+                        
                         if spark_runtime_id != None:
                             job_metadata["runtime_addon_identifiers"] = [
                                 spark_runtime_id
@@ -1775,25 +1986,66 @@ class ProjectImporter(BaseWorkspaceInteractor):
                             if runtime_identifier != None:
                                 job_metadata["runtime_identifier"] = runtime_identifier
                             else:
-                                job_metadata[
-                                    "runtime_identifier"
-                                ] = legacy_engine_runtime_constants.engine_to_runtime_map().get(
-                                    "default"
-                                )
-                        target_job_id = self.create_job_v2(
-                            proj_id=project_id, job_metadata=job_metadata
-                        )
-                        logging.info(
-                            "Job- %s has been migrated successfully",
-                            job_metadata["name"],
-                        )
+                                if runtime_list.get("runtimes"):
+                                    first_runtime = runtime_list["runtimes"][0].get("imageIdentifier")
+                                    if first_runtime:
+                                        logging.info(f"Using first available runtime for job '{job_name}': {first_runtime}")
+                                        job_metadata["runtime_identifier"] = first_runtime
+                                        used_fallback = True
+                        
+                        if "environment" in job_metadata and isinstance(job_metadata["environment"], str):
+                            try:
+                                job_metadata["environment"] = json.loads(job_metadata["environment"])
+                            except json.JSONDecodeError:
+                                logging.warning(f"Could not parse environment for job {job_metadata['name']}, setting to empty dict")
+                                job_metadata["environment"] = {}
+                        
+                        try:
+                            target_job_id = self.create_job_v2(
+                                proj_id=project_id, job_metadata=job_metadata
+                            )
+                            
+                            if used_fallback:
+                                logging.info(f"✅ Job '{job_name}' created with fallback runtime")
+                                self.import_tracking["jobs_created_with_fallback"].append({
+                                    "name": job_name,
+                                    "required_runtime": required_runtime,
+                                    "fallback_runtime": job_metadata.get("runtime_identifier"),
+                                    "action": "Verify job functionality with the fallback runtime"
+                                })
+                            else:
+                                logging.info(f"✅ Job '{job_name}' migrated successfully")
+                                self.import_tracking["jobs_imported_successfully"].append({
+                                    "name": job_name,
+                                    "runtime": job_metadata.get("runtime_identifier", "default")
+                                })
+                        
+                        except HTTPError as e:
+                            error_message = str(e)
+                            if hasattr(e, 'response') and e.response is not None:
+                                try:
+                                    error_json = e.response.json()
+                                    error_message = error_json.get("message") or error_json.get("error") or str(e)
+                                except:
+                                    pass
+                            
+                            logging.error(f"Failed to create job '{job_name}': {error_message}")
+                            self.import_tracking["jobs_skipped"].append({
+                                "name": job_name,
+                                "runtime": required_runtime or "unknown",
+                                "reason": f"Job creation failed: {error_message}",
+                                "action": "Manually recreate the job in CML UI"
+                            })
+                            target_job_id = None
+                            continue
                     else:
                         logging.info(
                             "Skipping the already existing job- %s",
                             job_metadata["name"],
                         )
 
-                    src_tgt_job_mapping[job_metadata["source_jobid"]] = target_job_id
+                    if target_job_id:
+                        src_tgt_job_mapping[job_metadata["source_jobid"]] = target_job_id
 
                 # Update job dependency
                 for job_metadata in job_metadata_list:
@@ -1817,7 +2069,8 @@ class ProjectImporter(BaseWorkspaceInteractor):
         except Exception as e:
             logging.error("Job migration failed")
             logging.error(f"Error: {e}")
-            raise
+            logging.info("Continuing despite job errors...")
+            return
 
     def get_project_infov2(self, proj_id: str):
         endpoint = Template(ApiV2Endpoints.GET_PROJECT.value).substitute(

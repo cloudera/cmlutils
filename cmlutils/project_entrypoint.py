@@ -35,9 +35,12 @@ from cmlutils.validator import (
 )
 
 
-def _configure_project_command_logging(log_filedir: str, project_name: str):
+def _configure_project_command_logging(log_filedir: str, project_name: str, verbose: bool = False):
     os.makedirs(name=log_filedir, exist_ok=True)
     log_filename = log_filedir + constants.LOG_FILE
+
+    log_level = logging.DEBUG if verbose else logging.INFO
+
     logging.basicConfig(
         handlers=[
             logging.StreamHandler(sys.stdout),
@@ -45,9 +48,10 @@ def _configure_project_command_logging(log_filedir: str, project_name: str):
                 filename=log_filename, maxBytes=10000000, backupCount=5
             ),
         ],
-        level=logging.INFO,
+        level=log_level,
         format="%(asctime)s - %(levelname)s - %(custom_attribute)s - %(message)s",
         datefmt="%d/%m/%Y %H:%M:%S",
+        force=True
     )
     old_factory = logging.getLogRecordFactory()
 
@@ -57,6 +61,8 @@ def _configure_project_command_logging(log_filedir: str, project_name: str):
         return record
 
     logging.setLogRecordFactory(record_factory)
+
+    os.environ['CMLUTILS_VERBOSE'] = str(verbose)
 
 
 def _read_config_file(file_path: str, project_name: str):
@@ -72,6 +78,19 @@ def _read_config_file(file_path: str, project_name: str):
             except NoOptionError:
                 print("Key %s is missing from config file." % (key))
                 raise
+        apiv1_key = None
+
+        try:
+            apiv1_key = config.get(project_name, API_V1_KEY)
+        except NoOptionError:
+            pass
+        
+        if not apiv1_key:
+            print("Error: Must provide %s in config file." % (API_V1_KEY))
+            raise NoOptionError(API_V1_KEY, project_name)
+
+        output_config[API_V1_KEY] = apiv1_key
+
         output_config[CA_PATH_KEY] = config.get(project_name, CA_PATH_KEY, fallback="")
         output_config[PROJECT_OWNER_USERNAME_KEY] = config.get(project_name, PROJECT_OWNER_USERNAME_KEY, fallback=config.get(project_name, USERNAME_KEY))
         output_config[constants.SKIP_TLS_VERIFICATION_KEY] = config.getboolean(
@@ -97,7 +116,13 @@ def project_cmd():
     help="Name of the project to be migrated. Make sure the name matches with the section name in export-config.ini file",
     required=True,
 )
-def project_export_cmd(project_name):
+@click.option(
+    "--verbose",
+    "-v",
+    is_flag=True,
+    help="Enable verbose logging including API call details",
+)
+def project_export_cmd(project_name, verbose):
     pexport = None
     config = _read_config_file(
         os.path.expanduser("~") + "/.cmlutils/export-config.ini", project_name
@@ -115,8 +140,10 @@ def project_export_cmd(project_name):
     ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(output_dir, project_name, "logs")
-    _configure_project_command_logging(log_filedir, project_name)
+    _configure_project_command_logging(log_filedir, project_name, verbose)
     logging.info("Started exporting project: %s", project_name)
+    if verbose:
+        logging.debug("Verbose mode enabled - additional API call details will be logged")
     try:
         pobj = ProjectExporter(
             host=url,
@@ -154,7 +181,7 @@ def project_export_cmd(project_name):
             validation_response = v.validate()
             if validation_response.validation_status == ValidationResponseStatus.FAILED:
                 logging.error(
-                    "Validation error: %s",
+                    "Validation error: %s %s",
                     project_name,
                     validation_response.validation_msg,
                 )
@@ -225,7 +252,12 @@ def project_export_cmd(project_name):
     is_flag=True,
     help="Flag to automatically trigger migration validation after import.",
 )
-def project_import_cmd(project_name, verify):
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose logging including API call details",
+)
+def project_import_cmd(project_name, verify, verbose):
     pimport = None
     import_diff_file_list = None
     config = _read_config_file(
@@ -242,7 +274,9 @@ def project_import_cmd(project_name, verify):
     ca_path = get_absolute_path(ca_path)
     log_filedir = os.path.join(local_directory, project_name, "logs")
 
-    _configure_project_command_logging(log_filedir, project_name)
+    _configure_project_command_logging(log_filedir, project_name, verbose)
+    if verbose:
+        logging.debug("Verbose mode enabled - additional API call details will be logged")
     p = ProjectImporter(
         host=url,
         username=username,
@@ -400,8 +434,7 @@ def project_import_cmd(project_name, verify):
             export_ca_path = get_absolute_path(ca_path)
 
             log_filedir = os.path.join(output_dir, project_name, "logs")
-            _configure_project_command_logging(log_filedir, project_name)
-
+            _configure_project_command_logging(log_filedir, project_name, verbose)
             import_file = log_filedir + constants.IMPORT_METRIC_FILE
             with open(import_file, 'r') as file:
                 validation_data = json.load(file)
@@ -644,7 +677,12 @@ def project_import_cmd(project_name, verify):
     help="Name of project migrated. Make sure the name matches with the section name in import-config.ini and export-config.ini file",
     required=True,
 )
-def project_verify_cmd(project_name):
+@click.option(
+    "--verbose",
+    is_flag=True,
+    help="Enable verbose logging including API call details",
+)
+def project_verify_cmd(project_name, verbose):
     pexport = None
     validation_data = dict()
     config = _read_config_file(
@@ -662,7 +700,9 @@ def project_verify_cmd(project_name):
     export_ca_path = get_absolute_path(ca_path)
 
     log_filedir = os.path.join(output_dir, project_name, "logs")
-    _configure_project_command_logging(log_filedir, project_name)
+    _configure_project_command_logging(log_filedir, project_name, verbose)
+    if verbose:
+        logging.debug("Verbose mode enabled - additional API call details will be logged")
     logging.info("Started Verifying project: %s", project_name)
     import_file = log_filedir + constants.IMPORT_METRIC_FILE
     try:

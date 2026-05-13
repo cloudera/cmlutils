@@ -58,7 +58,7 @@ class ApiV1Endpoints(Enum):
     JOB_INFO = "/api/v1/projects/$owner/$project_name/jobs/$job_id"
     APP_INFO = "/api/v1/projects/$owner/$project_name/applications/$app_id"
     API_KEY = "/api/v1/users/$username/apikey"
-    RUNTIMES = "/api/v1/runtimes"
+    RUNTIMES = "/api/v1/runtimes?includeAll=true&runtimeCatalog=true"
     USER_INFO = "/api/v1/users/$username"
     PROJECTS_SUMMARY = "/api/v1/users/$username/projects-summary?all=true&scope=all&context=$username&sortColumn=updated_at&projectName=$projectName&limit=$limit&offset=$offset"
 
