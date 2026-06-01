@@ -1173,6 +1173,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 importignore_path=importignore_path,
             )
         self.remove_cdswctl_dir(cdswctl_path)
+        self.terminate_ssh_session()
         return result
 
     def verify_project(self, log_filedir: str):
@@ -1219,6 +1220,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             importignore_path=importignore_path,
         )
         self.remove_cdswctl_dir(cdswctl_path)
+        self.terminate_ssh_session()
         return result
 
     def terminate_ssh_session(self):
