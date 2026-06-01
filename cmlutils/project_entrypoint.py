@@ -368,7 +368,10 @@ def project_import_cmd(project_name, verify, verbose):
             if original_owner != username:
                 logging.info("Attempting to transfer ownership to original owner: %s", original_owner)
                 try:
-                    pimport.trasnfer_ownership_to_original_owner(original_owner_username=original_owner)
+                    pimport.transfer_ownership_to_original_owner(
+                        original_owner_username=original_owner,
+                        visibility=project_metadata.get("visibility"),
+                    )
                 except Exception as e:
                     logging.warning(
                         "Ownership transfer to %s failed but continuing with import. Error: %s",

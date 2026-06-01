@@ -2154,48 +2154,52 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.metrics_data["application_name_list"] = sorted(app_name_list)
         return app_metadata_list, sorted(app_name_list)
 
-    def trasnfer_ownership_to_original_owner(self, original_owner_username: str):
+    def transfer_ownership_to_original_owner(self, original_owner_username: str, visibility: str = None):
         """
-        Transfer project ownership to the original owner.
-        
+        Transfer project ownership to the original owner and restore project visibility.
+
         Args:
             original_owner_username: Username of the original owner to transfer ownership to
+            visibility: Original project visibility to restore after ownership transfer;
+                        ownership transfer resets visibility to private, so the original
+                        value must be re-applied explicitly
         """
         try:
             # Get the user info to retrieve user ID
             endpoint = Template(ApiV1Endpoints.USER_INFO.value).substitute(
                 username=original_owner_username
             )
-            
+
             logging.info(
                 "Fetching user information for original owner: %s",
                 original_owner_username
             )
-            
+
             response = call_api_v1(
                 host=self.host,
                 endpoint=endpoint,
                 method="GET",
                 api_key=self.api_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
-            
+
             user_info = response.json()
             original_owner_id = user_info.get("id")
-            
+
             if not original_owner_id:
                 logging.error(
                     "User ID not found in response for user: %s",
                     original_owner_username
                 )
                 return
-            
+
             logging.info(
                 "Found original owner %s with ID: %s",
                 original_owner_username,
                 original_owner_id
             )
-            
+
             # Transfer ownership using PATCH request to PROJECT endpoint
             project_endpoint = Template(ApiV1Endpoints.PROJECT.value).substitute(
                 owner=self.username, project_name=self.project_slug
@@ -2209,7 +2213,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 original_owner_username,
                 original_owner_id
             )
-            
+
             call_api_v1(
                 host=self.host,
                 endpoint=project_endpoint,
@@ -2217,14 +2221,45 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 api_key=self.api_key,
                 json_data=payload,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
-            
+
             logging.info(
                 "Successfully transferred ownership of project %s to %s",
                 self.project_name,
                 original_owner_username
             )
-            
+
+            # Restore original visibility — the ownership PATCH resets it to private
+            if visibility:
+                project_endpoint_new_owner = Template(ApiV1Endpoints.PROJECT.value).substitute(
+                    owner=original_owner_username, project_name=self.project_slug
+                )
+
+                logging.info(
+                    "Restoring visibility of project %s to %s",
+                    self.project_name,
+                    visibility,
+                )
+
+                payload = {"project_visibility": visibility}
+
+                call_api_v1(
+                    host=self.host,
+                    endpoint=project_endpoint_new_owner,
+                    method="PATCH",
+                    api_key=self.api_key,
+                    json_data=payload,
+                    ca_path=self.ca_path,
+                    skip_tls_verification=self.skip_tls_verification,
+                )
+
+                logging.info(
+                    "Successfully restored visibility of project %s to %s",
+                    self.project_name,
+                    visibility,
+                )
+
         except HTTPError as e:
             if e.response.status_code == 404:
                 logging.warning(
