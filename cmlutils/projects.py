@@ -699,7 +699,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
         self._ssh_subprocess = ssh_subprocess
         exclude_file_path = get_ignore_files(
             host=self.host,
-            username=self.username,
+            username=self.project_owner_username,
             project_name=self.project_name,
             api_key=self.api_key,
             ca_path=self.ca_path,
