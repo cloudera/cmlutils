@@ -323,7 +323,8 @@ def project_import_cmd(project_name, verify, verbose):
             uses_engine = True
             project_metadata.pop("default_project_engine_type", None)
 
-        project_id = p.check_project_exist(project_metadata["name"])
+        original_owner = project_metadata.get("original_owner_username")
+        project_id = p.check_project_exist(project_metadata["name"], owner_username=original_owner)
         if project_id == None:
             logging.info(
                 "Creating project %s to migrate files and metadata.", project_name
@@ -335,7 +336,7 @@ def project_import_cmd(project_name, verify, verbose):
                 "Project %s already exist in the target workspace. Retrying the import won't update existing project settings or artifacts. Only missing artifacts will be migrated, However the project files will be synced via rsync.",
                 project_metadata.get("name", ""),
             )
-        creator_username, project_slug = p.get_creator_username()
+        creator_username, project_slug = p.get_creator_username(owner_username=original_owner)
         pimport = ProjectImporter(
             host=url,
             username=username,
@@ -846,16 +847,17 @@ def project_verify_cmd(project_name, verbose):
                 "Finished validating import verification validations for project %s.",
                 project_name,
             )
-            project_id = p.check_project_exist(project_name)
-
             project_filepath = get_project_metadata_file_path(
                 top_level_dir=local_directory, project_name=project_name
             )
             project_metadata = read_json_file(project_filepath)
 
+            original_owner = project_metadata.get("original_owner_username")
+            project_id = p.check_project_exist(project_name, owner_username=original_owner)
+
             if "team_name" in project_metadata:
                 import_username = project_metadata["team_name"]
-            import_creator_username, import_project_slug = p.get_creator_username()
+            import_creator_username, import_project_slug = p.get_creator_username(owner_username=original_owner)
             pimport = ProjectImporter(
                 host=import_url,
                 username=import_username,

@@ -1074,7 +1074,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             "apps_imported_with_fallback": []
         }
 
-    def get_creator_username(self):
+    def get_creator_username(self, owner_username: str = None):
         next_page_exists = True
         offset = 0
         project_list = []
@@ -1098,10 +1098,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             )
 
             """
-            End loop           
-            a. If response len is less than MAX_API_PAGE_LENGTH 
+            End loop
+            a. If response len is less than MAX_API_PAGE_LENGTH
                 => Possible if less number of records
-                => Possible if response is [] => len 0             
+                => Possible if response is [] => len 0
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
             c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
             """
@@ -1118,7 +1118,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
         if project_list:
             for project in project_list:
                 if project["name"] == self.project_name:
-                    return project["owner"]["username"], project["slug_raw"]
+                    project_username = project.get("owner", {}).get("username")
+                    if owner_username is None or project_username == owner_username:
+                        return project["owner"]["username"], project["slug_raw"]
         return None
 
     def transfer_project(self, log_filedir: str, verify=False):
@@ -1435,7 +1437,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             return result_list
         return None
 
-    def check_project_exist(self, project_name: str) -> str:
+    def check_project_exist(self, project_name: str, owner_username: str = None) -> str:
         try:
             search_option = {"name": project_name}
             encoded_option = urllib.parse.quote(
@@ -1456,7 +1458,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if project_list:
                 for project in project_list:
                     if project["name"] == project_name:
-                        return project["id"]
+                        project_username = project.get("owner", {}).get("username")
+                        if owner_username is None or project_username == owner_username:
+                            return project["id"]
             return None
         except KeyError as e:
             logging.error(f"Error: {e}")
