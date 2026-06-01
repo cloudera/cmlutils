@@ -12,7 +12,7 @@ def _find_free_port() -> int:
 
 
 def open_ssh_endpoint(
-    cdswctl_path: str, project_name: str, runtime_id: int, project_slug: str
+    cdswctl_path: str, project_name: str, runtime_id: int, project_slug: str, skip_tls_verification: bool = False
 ) -> tuple[subprocess.Popen, int]:
     local_port = _find_free_port()
     command = [
@@ -30,6 +30,8 @@ def open_ssh_endpoint(
     if runtime_id != -1:
         command.append("-r")
         command.append(str(runtime_id))
+    if skip_tls_verification:
+        command.append("--insecure")
     ssh_call = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )

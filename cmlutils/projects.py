@@ -615,6 +615,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
@@ -629,6 +630,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
             project_slug="/".join([self.project_owner_username, self.project_slug]),
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
         exclude_file_path = get_ignore_files(
@@ -680,6 +682,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
@@ -691,6 +694,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
             project_slug="/".join([self.project_owner_username, self.project_slug]),
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
         exclude_file_path = get_ignore_files(
@@ -1128,6 +1132,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
@@ -1137,9 +1142,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
             project_slug=self.project_slug,
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
-        
+
         # Get importignore file (create if doesn't exist)
         importignore_path = get_importignore_file(self.top_level_dir, self.project_name)
         
@@ -1186,6 +1192,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
@@ -1195,9 +1202,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
             project_slug=self.project_slug,
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
-        
+
         # Use importignore file if it exists
         importignore_path = os.path.join(
             self.top_level_dir, self.project_name, "project-data", constants.IMPORTIGNORE_FILE_NAME

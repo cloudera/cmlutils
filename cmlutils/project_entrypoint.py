@@ -432,6 +432,7 @@ def project_import_cmd(project_name, verify, verbose):
             export_apiv1_key = config[API_V1_KEY]
             output_dir = config[OUTPUT_DIR_KEY]
             ca_path = config[CA_PATH_KEY]
+            export_skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
             export_output_dir = get_absolute_path(output_dir)
             export_ca_path = get_absolute_path(ca_path)
@@ -452,6 +453,7 @@ def project_import_cmd(project_name, verify, verbose):
                     ca_path=export_ca_path,
                     project_slug=project_name,
                     owner_type="",
+                    skip_tls_verification=export_skip_tls_verification,
                 )
                 (
                     export_creator_username,
@@ -474,6 +476,7 @@ def project_import_cmd(project_name, verify, verbose):
                     apiv1_key=export_apiv1_key,
                     ca_path=export_ca_path,
                     project_slug=export_project_slug,
+                    skip_tls_verification=export_skip_tls_verification,
                 )
                 for v in validators:
                     validation_response = v.validate()
@@ -500,6 +503,7 @@ def project_import_cmd(project_name, verify, verbose):
                     ca_path=export_ca_path,
                     project_slug=export_project_slug,
                     owner_type=export_owner_type,
+                    skip_tls_verification=export_skip_tls_verification,
                 )
                 (
                     exported_proj_data,
@@ -698,6 +702,7 @@ def project_verify_cmd(project_name, verbose):
     export_apiv1_key = config[API_V1_KEY]
     output_dir = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
+    export_skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
     export_output_dir = get_absolute_path(output_dir)
     export_ca_path = get_absolute_path(ca_path)
@@ -725,6 +730,7 @@ def project_verify_cmd(project_name, verbose):
             ca_path=export_ca_path,
             project_slug=project_name,
             owner_type="",
+            skip_tls_verification=export_skip_tls_verification,
         )
         (
             export_creator_username,
@@ -747,6 +753,7 @@ def project_verify_cmd(project_name, verbose):
             apiv1_key=export_apiv1_key,
             ca_path=export_ca_path,
             project_slug=export_project_slug,
+            skip_tls_verification=export_skip_tls_verification,
         )
         for v in validators:
             validation_response = v.validate()
@@ -773,6 +780,7 @@ def project_verify_cmd(project_name, verbose):
             ca_path=export_ca_path,
             project_slug=export_project_slug,
             owner_type=export_owner_type,
+            skip_tls_verification=export_skip_tls_verification,
         )
         (
             exported_proj_data,
@@ -795,6 +803,7 @@ def project_verify_cmd(project_name, verbose):
         import_apiv1_key = import_config[API_V1_KEY]
         local_directory = import_config[OUTPUT_DIR_KEY]
         ca_path = import_config[CA_PATH_KEY]
+        import_skip_tls_verification = import_config[constants.SKIP_TLS_VERIFICATION_KEY]
         import_local_directory = get_absolute_path(local_directory)
         import_ca_path = get_absolute_path(ca_path)
         p = ProjectImporter(
@@ -805,6 +814,7 @@ def project_verify_cmd(project_name, verbose):
             top_level_dir=import_local_directory,
             ca_path=import_ca_path,
             project_slug=project_name,
+            skip_tls_verification=import_skip_tls_verification,
         )
         logging.info("Started Verifying imported project: %s", project_name)
         try:
@@ -815,6 +825,7 @@ def project_verify_cmd(project_name, verbose):
                 top_level_directory=import_local_directory,
                 apiv1_key=import_apiv1_key,
                 ca_path=import_ca_path,
+                skip_tls_verification=import_skip_tls_verification,
             )
             logging.info("Begin validating for import.")
             for v in validators:
@@ -853,6 +864,7 @@ def project_verify_cmd(project_name, verbose):
                 top_level_dir=import_local_directory,
                 ca_path=import_ca_path,
                 project_slug=import_project_slug,
+                skip_tls_verification=import_skip_tls_verification,
             )
 
             (
@@ -1051,6 +1063,7 @@ def populate_engine_runtimes_mapping():
     apiv1_key = config[API_V1_KEY]
     local_directory = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
+    skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
     local_directory = get_absolute_path(local_directory)
     ca_path = get_absolute_path(ca_path)
@@ -1066,6 +1079,7 @@ def populate_engine_runtimes_mapping():
         top_level_dir=local_directory,
         ca_path=ca_path,
         project_slug=project_name,
+        skip_tls_verification=skip_tls_verification,
     )
 
     page_token = ""

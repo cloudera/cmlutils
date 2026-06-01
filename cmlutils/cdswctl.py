@@ -60,7 +60,9 @@ def obtain_cdswctl(host: str, ca_path: str, skip_tls_verification: bool = False)
     return expected_cdswctl_path
 
 
-def cdswctl_login(cdswctl_path: str, host: str, username: str, api_key: str):
+def cdswctl_login(cdswctl_path: str, host: str, username: str, api_key: str, skip_tls_verification: bool = False):
     logging.info("Logging into cdsw via cdswctl")
     command = [cdswctl_path, "login", "-n", username, "-u", host, "-y", api_key]
+    if skip_tls_verification:
+        command.append("--insecure")
     return subprocess.run(command)
