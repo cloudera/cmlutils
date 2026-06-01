@@ -1118,7 +1118,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
         if project_list:
             for project in project_list:
                 if project["name"] == self.project_name:
-                    return project["creator"]["username"], project["slug_raw"]
+                    return project["owner"]["username"], project["slug_raw"]
         return None
 
     def transfer_project(self, log_filedir: str, verify=False):
@@ -1137,11 +1137,13 @@ class ProjectImporter(BaseWorkspaceInteractor):
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
             raise RuntimeError
+        owner_result = self.get_creator_username()
+        project_owner = owner_result[0] if owner_result else self.username
         ssh_subprocess, port = open_ssh_endpoint(
             cdswctl_path=cdswctl_path,
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
-            project_slug=self.project_slug,
+            project_slug="/".join([project_owner, self.project_slug]),
             skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
@@ -1197,11 +1199,13 @@ class ProjectImporter(BaseWorkspaceInteractor):
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
             raise RuntimeError
+        owner_result = self.get_creator_username()
+        project_owner = owner_result[0] if owner_result else self.username
         ssh_subprocess, port = open_ssh_endpoint(
             cdswctl_path=cdswctl_path,
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
-            project_slug=self.project_slug,
+            project_slug="/".join([project_owner, self.project_slug]),
             skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
