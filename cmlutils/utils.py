@@ -283,24 +283,21 @@ def get_absolute_path(path: str) -> str:
 
 
 def parse_runtimes_v2(runtimes):
-    legacy_runtime_image_map = _get_runtimes_v2(
-        runtimes, editor="Workbench", edition="Standard"
-    )
+    legacy_runtime_image_map = _get_runtimes_v2(runtimes, editor="Workbench")
     return legacy_runtime_image_map
 
 
-def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
+def _get_runtimes_v2(runtimes, editor="Workbench"):
     legacy_runtime_image_map = {}
     legacy_runtime_kernel_map = {}
 
     logging.info(
-        "Populating Engine to Runtimes Mapping for editor: %s, edition: %s",
+        "Populating Engine to Runtimes Mapping for editor: %s",
         editor,
-        edition,
     )
 
     for image_details in runtimes:
-        if image_details["editor"] == editor and image_details["edition"] == edition:
+        if image_details["editor"] == editor:
             if "Python" in image_details["kernel"]:
                 if "python3" not in legacy_runtime_image_map:
                     legacy_runtime_kernel_map["python3"] = image_details["kernel"]
@@ -345,7 +342,16 @@ def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
                         ]
 
     # Assigning Default runtime to Python3
-    legacy_runtime_image_map["default"] = legacy_runtime_image_map["python3"]
+    if "python3" in legacy_runtime_image_map:
+        legacy_runtime_image_map["default"] = legacy_runtime_image_map["python3"]
+    else:
+        logging.warning(
+            "No Python runtime found for editor '%s'. "
+            "Cannot set default runtime mapping. "
+            "Available kernels mapped: %s",
+            editor,
+            list(legacy_runtime_image_map.keys()),
+        )
 
     return legacy_runtime_image_map
 
