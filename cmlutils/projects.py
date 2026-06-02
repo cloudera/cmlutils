@@ -1062,9 +1062,13 @@ class ProjectImporter(BaseWorkspaceInteractor):
         ca_path: str,
         project_slug: str,
         skip_tls_verification: bool = False,
+        project_owner_username: str = None,
     ) -> None:
         self._ssh_subprocess = None
         self.top_level_dir = top_level_dir
+        # project_owner_username is the current owner of the project on the destination.
+        # On re-import after ownership transfer it differs from username (the importing user).
+        self.project_owner_username = project_owner_username or username
         super().__init__(host, username, project_name, api_key, ca_path, project_slug, skip_tls_verification)
         self.metrics_data = dict()
         self.import_tracking = {
@@ -1264,7 +1268,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
     def convert_project_to_engine_based(self, proj_patch_metadata) -> bool:
         try:
             endpoint2 = Template(ApiV1Endpoints.PROJECT.value).substitute(
-                owner=self.username, project_name=self.project_name
+                owner=self.project_owner_username, project_name=self.encoded_project_slug
             )
             response = call_api_v1(
                 host=self.host,
@@ -1458,8 +1462,16 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if project_list:
                 for project in project_list:
                     if project["name"] == project_name:
-                        project_username = project.get("owner", {}).get("username")
-                        if owner_username is None or project_username == owner_username:
+                        # v2 API may surface owner via different fields depending on version
+                        project_username = (
+                            project.get("owner", {}).get("username")
+                            or project.get("creator", {}).get("name")
+                        )
+                        if (
+                            owner_username is None
+                            or project_username == owner_username
+                            or project_username == self.username
+                        ):
                             return project["id"]
             return None
         except KeyError as e:
@@ -1663,7 +1675,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             runtime_list = self.get_all_runtimes()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
-                username=self.username,
+                username=self.project_owner_username,
                 project_name=self.project_name,
                 api_key=self.api_key,
                 ca_path=self.ca_path,
@@ -1858,7 +1870,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             runtime_list = self.get_all_runtimes()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
-                username=self.username,
+                username=self.project_owner_username,
                 project_name=self.project_name,
                 api_key=self.api_key,
                 ca_path=self.ca_path,
@@ -1927,7 +1939,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             spark_runtime_id = self.get_spark_runtimeaddons()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
-                username=self.username,
+                username=self.project_owner_username,
                 project_name=self.project_name,
                 api_key=self.api_key,
                 ca_path=self.ca_path,

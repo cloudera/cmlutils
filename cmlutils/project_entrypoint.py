@@ -325,6 +325,7 @@ def project_import_cmd(project_name, verify, verbose):
 
         original_owner = project_metadata.get("original_owner_username")
         project_id = p.check_project_exist(project_metadata["name"], owner_username=original_owner)
+        project_already_existed = project_id is not None
         if project_id == None:
             logging.info(
                 "Creating project %s to migrate files and metadata.", project_name
@@ -336,7 +337,20 @@ def project_import_cmd(project_name, verify, verbose):
                 "Project %s already exist in the target workspace. Retrying the import won't update existing project settings or artifacts. Only missing artifacts will be migrated, However the project files will be synced via rsync.",
                 project_metadata.get("name", ""),
             )
-        creator_username, project_slug = p.get_creator_username(owner_username=original_owner)
+        # If project was just created it is owned by the importing user — no owner filter.
+        # If it already existed, first try the original owner successful previous import
+        # fall back to no filter for the case where a prior failed import left the project
+        # under the importing user before ownership transfer completed.
+        owner_filter = original_owner if project_already_existed else None
+        result = p.get_creator_username(owner_username=owner_filter)
+        if result is None:
+            result = p.get_creator_username(owner_username=None)
+        if result is None:
+            logging.error(
+                "Cannot find project %s on destination after creation.", project_name
+            )
+            raise RuntimeError("Project not found on destination")
+        creator_username, project_slug = result
         pimport = ProjectImporter(
             host=url,
             username=username,
@@ -346,6 +360,7 @@ def project_import_cmd(project_name, verify, verbose):
             ca_path=ca_path,
             project_slug=project_slug,
             skip_tls_verification=skip_tls_verification,
+            project_owner_username=creator_username,
         )
         start_time = time.time()
         if verify:
@@ -367,18 +382,24 @@ def project_import_cmd(project_name, verify, verbose):
         if "original_owner_username" in project_metadata and project_metadata["original_owner_username"]:
             original_owner = project_metadata["original_owner_username"]
             if original_owner != username:
-                logging.info("Attempting to transfer ownership to original owner: %s", original_owner)
-                try:
-                    pimport.transfer_ownership_to_original_owner(
-                        original_owner_username=original_owner,
-                        visibility=project_metadata.get("visibility"),
-                    )
-                except Exception as e:
-                    logging.warning(
-                        "Ownership transfer to %s failed but continuing with import. Error: %s",
+                if creator_username == original_owner:
+                    logging.info(
+                        "Project already owned by %s, skipping ownership transfer.",
                         original_owner,
-                        str(e)
                     )
+                else:
+                    logging.info("Attempting to transfer ownership to original owner: %s", original_owner)
+                    try:
+                        pimport.transfer_ownership_to_original_owner(
+                            original_owner_username=original_owner,
+                            visibility=project_metadata.get("visibility"),
+                        )
+                    except Exception as e:
+                        logging.warning(
+                            "Ownership transfer to %s failed but continuing with import. Error: %s",
+                            original_owner,
+                            str(e)
+                        )
         
         print("\033[32m✔ Import of Project {} Successful \033[0m".format(project_name))
         print(
