@@ -31,7 +31,7 @@ def open_ssh_endpoint(
         command.append("-r")
         command.append(str(runtime_id))
     if skip_tls_verification:
-        command.append("--insecure")
+        command.append("--insecure-skip-verify")
     ssh_call = subprocess.Popen(
         command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True
     )

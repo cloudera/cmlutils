@@ -64,5 +64,5 @@ def cdswctl_login(cdswctl_path: str, host: str, username: str, api_key: str, ski
     logging.info("Logging into cdsw via cdswctl")
     command = [cdswctl_path, "login", "-n", username, "-u", host, "-y", api_key]
     if skip_tls_verification:
-        command.append("--insecure")
+        command.append("--insecure-skip-verify")
     return subprocess.run(command)
