@@ -77,7 +77,6 @@ def fetch_project_names_from_csv(csv_file):
         reader = csv.reader(file)
         for row in reader:
             for project in row:
-                project = project.strip()  # Strip whitespace from the project name
                 if project:  # Check if project is not an empty string
                     names.append(project)  # Add the value to the list
     return names

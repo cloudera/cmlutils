@@ -615,6 +615,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
@@ -629,6 +630,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
             project_slug="/".join([self.project_owner_username, self.project_slug]),
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
         exclude_file_path = get_ignore_files(
@@ -680,6 +682,7 @@ class ProjectExporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
@@ -691,11 +694,12 @@ class ProjectExporter(BaseWorkspaceInteractor):
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
             project_slug="/".join([self.project_owner_username, self.project_slug]),
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
         exclude_file_path = get_ignore_files(
             host=self.host,
-            username=self.username,
+            username=self.project_owner_username,
             project_name=self.project_name,
             api_key=self.api_key,
             ca_path=self.ca_path,
@@ -1058,9 +1062,13 @@ class ProjectImporter(BaseWorkspaceInteractor):
         ca_path: str,
         project_slug: str,
         skip_tls_verification: bool = False,
+        project_owner_username: str = None,
     ) -> None:
         self._ssh_subprocess = None
         self.top_level_dir = top_level_dir
+        # project_owner_username is the current owner of the project on the destination.
+        # On re-import after ownership transfer it differs from username (the importing user).
+        self.project_owner_username = project_owner_username or username
         super().__init__(host, username, project_name, api_key, ca_path, project_slug, skip_tls_verification)
         self.metrics_data = dict()
         self.import_tracking = {
@@ -1070,7 +1078,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             "apps_imported_with_fallback": []
         }
 
-    def get_creator_username(self):
+    def get_creator_username(self, owner_username: str = None):
         next_page_exists = True
         offset = 0
         project_list = []
@@ -1094,10 +1102,10 @@ class ProjectImporter(BaseWorkspaceInteractor):
             )
 
             """
-            End loop           
-            a. If response len is less than MAX_API_PAGE_LENGTH 
+            End loop
+            a. If response len is less than MAX_API_PAGE_LENGTH
                 => Possible if less number of records
-                => Possible if response is [] => len 0             
+                => Possible if response is [] => len 0
             b. If length of response is greater than MAX_API_PAGE_LENGTH => If source is CDSW, as CDSW doesn't honor limit
             c. If CDSW non-paginated response length is exactly the MAX_API_PAGE_LENGTH
             """
@@ -1114,7 +1122,9 @@ class ProjectImporter(BaseWorkspaceInteractor):
         if project_list:
             for project in project_list:
                 if project["name"] == self.project_name:
-                    return project["creator"]["username"], project["slug_raw"]
+                    project_username = project.get("owner", {}).get("username")
+                    if owner_username is None or project_username == owner_username:
+                        return project["owner"]["username"], project["slug_raw"]
         return None
 
     def transfer_project(self, log_filedir: str, verify=False):
@@ -1128,18 +1138,22 @@ class ProjectImporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
             raise RuntimeError
+        owner_result = self.get_creator_username()
+        project_owner = owner_result[0] if owner_result else self.username
         ssh_subprocess, port = open_ssh_endpoint(
             cdswctl_path=cdswctl_path,
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
-            project_slug=self.project_slug,
+            project_slug="/".join([project_owner, self.project_slug]),
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
-        
+
         # Get importignore file (create if doesn't exist)
         importignore_path = get_importignore_file(self.top_level_dir, self.project_name)
         
@@ -1173,6 +1187,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 importignore_path=importignore_path,
             )
         self.remove_cdswctl_dir(cdswctl_path)
+        self.terminate_ssh_session()
         return result
 
     def verify_project(self, log_filedir: str):
@@ -1185,18 +1200,22 @@ class ProjectImporter(BaseWorkspaceInteractor):
             host=self.host,
             username=self.username,
             api_key=self.api_key,
+            skip_tls_verification=self.skip_tls_verification,
         )
         if login_response.returncode != 0:
             logging.error("Cdswctl login failed")
             raise RuntimeError
+        owner_result = self.get_creator_username()
+        project_owner = owner_result[0] if owner_result else self.username
         ssh_subprocess, port = open_ssh_endpoint(
             cdswctl_path=cdswctl_path,
             project_name=self.project_name,
             runtime_id=rsync_enabled_runtime_id,
-            project_slug=self.project_slug,
+            project_slug="/".join([project_owner, self.project_slug]),
+            skip_tls_verification=self.skip_tls_verification,
         )
         self._ssh_subprocess = ssh_subprocess
-        
+
         # Use importignore file if it exists
         importignore_path = os.path.join(
             self.top_level_dir, self.project_name, "project-data", constants.IMPORTIGNORE_FILE_NAME
@@ -1219,6 +1238,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             importignore_path=importignore_path,
         )
         self.remove_cdswctl_dir(cdswctl_path)
+        self.terminate_ssh_session()
         return result
 
     def terminate_ssh_session(self):
@@ -1248,7 +1268,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
     def convert_project_to_engine_based(self, proj_patch_metadata) -> bool:
         try:
             endpoint2 = Template(ApiV1Endpoints.PROJECT.value).substitute(
-                owner=self.username, project_name=self.project_name
+                owner=self.project_owner_username, project_name=self.encoded_project_slug
             )
             response = call_api_v1(
                 host=self.host,
@@ -1421,7 +1441,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             return result_list
         return None
 
-    def check_project_exist(self, project_name: str) -> str:
+    def check_project_exist(self, project_name: str, owner_username: str = None) -> str:
         try:
             search_option = {"name": project_name}
             encoded_option = urllib.parse.quote(
@@ -1442,7 +1462,17 @@ class ProjectImporter(BaseWorkspaceInteractor):
             if project_list:
                 for project in project_list:
                     if project["name"] == project_name:
-                        return project["id"]
+                        # v2 API may surface owner via different fields depending on version
+                        project_username = (
+                            project.get("owner", {}).get("username")
+                            or project.get("creator", {}).get("name")
+                        )
+                        if (
+                            owner_username is None
+                            or project_username == owner_username
+                            or project_username == self.username
+                        ):
+                            return project["id"]
             return None
         except KeyError as e:
             logging.error(f"Error: {e}")
@@ -1645,7 +1675,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             runtime_list = self.get_all_runtimes()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
-                username=self.username,
+                username=self.project_owner_username,
                 project_name=self.project_name,
                 api_key=self.api_key,
                 ca_path=self.ca_path,
@@ -1840,7 +1870,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             runtime_list = self.get_all_runtimes()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
-                username=self.username,
+                username=self.project_owner_username,
                 project_name=self.project_name,
                 api_key=self.api_key,
                 ca_path=self.ca_path,
@@ -1909,7 +1939,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
             spark_runtime_id = self.get_spark_runtimeaddons()
             proj_with_runtime = is_project_configured_with_runtimes(
                 host=self.host,
-                username=self.username,
+                username=self.project_owner_username,
                 project_name=self.project_name,
                 api_key=self.api_key,
                 ca_path=self.ca_path,
@@ -2152,48 +2182,52 @@ class ProjectImporter(BaseWorkspaceInteractor):
         self.metrics_data["application_name_list"] = sorted(app_name_list)
         return app_metadata_list, sorted(app_name_list)
 
-    def trasnfer_ownership_to_original_owner(self, original_owner_username: str):
+    def transfer_ownership_to_original_owner(self, original_owner_username: str, visibility: str = None):
         """
-        Transfer project ownership to the original owner.
-        
+        Transfer project ownership to the original owner and restore project visibility.
+
         Args:
             original_owner_username: Username of the original owner to transfer ownership to
+            visibility: Original project visibility to restore after ownership transfer;
+                        ownership transfer resets visibility to private, so the original
+                        value must be re-applied explicitly
         """
         try:
             # Get the user info to retrieve user ID
             endpoint = Template(ApiV1Endpoints.USER_INFO.value).substitute(
                 username=original_owner_username
             )
-            
+
             logging.info(
                 "Fetching user information for original owner: %s",
                 original_owner_username
             )
-            
+
             response = call_api_v1(
                 host=self.host,
                 endpoint=endpoint,
                 method="GET",
                 api_key=self.api_key,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
-            
+
             user_info = response.json()
             original_owner_id = user_info.get("id")
-            
+
             if not original_owner_id:
                 logging.error(
                     "User ID not found in response for user: %s",
                     original_owner_username
                 )
                 return
-            
+
             logging.info(
                 "Found original owner %s with ID: %s",
                 original_owner_username,
                 original_owner_id
             )
-            
+
             # Transfer ownership using PATCH request to PROJECT endpoint
             project_endpoint = Template(ApiV1Endpoints.PROJECT.value).substitute(
                 owner=self.username, project_name=self.project_slug
@@ -2207,7 +2241,7 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 original_owner_username,
                 original_owner_id
             )
-            
+
             call_api_v1(
                 host=self.host,
                 endpoint=project_endpoint,
@@ -2215,14 +2249,45 @@ class ProjectImporter(BaseWorkspaceInteractor):
                 api_key=self.api_key,
                 json_data=payload,
                 ca_path=self.ca_path,
+                skip_tls_verification=self.skip_tls_verification,
             )
-            
+
             logging.info(
                 "Successfully transferred ownership of project %s to %s",
                 self.project_name,
                 original_owner_username
             )
-            
+
+            # Restore original visibility — the ownership PATCH resets it to private
+            if visibility:
+                project_endpoint_new_owner = Template(ApiV1Endpoints.PROJECT.value).substitute(
+                    owner=original_owner_username, project_name=self.project_slug
+                )
+
+                logging.info(
+                    "Restoring visibility of project %s to %s",
+                    self.project_name,
+                    visibility,
+                )
+
+                payload = {"project_visibility": visibility}
+
+                call_api_v1(
+                    host=self.host,
+                    endpoint=project_endpoint_new_owner,
+                    method="PATCH",
+                    api_key=self.api_key,
+                    json_data=payload,
+                    ca_path=self.ca_path,
+                    skip_tls_verification=self.skip_tls_verification,
+                )
+
+                logging.info(
+                    "Successfully restored visibility of project %s to %s",
+                    self.project_name,
+                    visibility,
+                )
+
         except HTTPError as e:
             if e.response.status_code == 404:
                 logging.warning(

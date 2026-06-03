@@ -323,7 +323,9 @@ def project_import_cmd(project_name, verify, verbose):
             uses_engine = True
             project_metadata.pop("default_project_engine_type", None)
 
-        project_id = p.check_project_exist(project_metadata["name"])
+        original_owner = project_metadata.get("original_owner_username")
+        project_id = p.check_project_exist(project_metadata["name"], owner_username=original_owner)
+        project_already_existed = project_id is not None
         if project_id == None:
             logging.info(
                 "Creating project %s to migrate files and metadata.", project_name
@@ -335,7 +337,20 @@ def project_import_cmd(project_name, verify, verbose):
                 "Project %s already exist in the target workspace. Retrying the import won't update existing project settings or artifacts. Only missing artifacts will be migrated, However the project files will be synced via rsync.",
                 project_metadata.get("name", ""),
             )
-        creator_username, project_slug = p.get_creator_username()
+        # If project was just created it is owned by the importing user — no owner filter.
+        # If it already existed, first try the original owner successful previous import
+        # fall back to no filter for the case where a prior failed import left the project
+        # under the importing user before ownership transfer completed.
+        owner_filter = original_owner if project_already_existed else None
+        result = p.get_creator_username(owner_username=owner_filter)
+        if result is None:
+            result = p.get_creator_username(owner_username=None)
+        if result is None:
+            logging.error(
+                "Cannot find project %s on destination after creation.", project_name
+            )
+            raise RuntimeError("Project not found on destination")
+        creator_username, project_slug = result
         pimport = ProjectImporter(
             host=url,
             username=username,
@@ -345,6 +360,7 @@ def project_import_cmd(project_name, verify, verbose):
             ca_path=ca_path,
             project_slug=project_slug,
             skip_tls_verification=skip_tls_verification,
+            project_owner_username=creator_username,
         )
         start_time = time.time()
         if verify:
@@ -366,15 +382,24 @@ def project_import_cmd(project_name, verify, verbose):
         if "original_owner_username" in project_metadata and project_metadata["original_owner_username"]:
             original_owner = project_metadata["original_owner_username"]
             if original_owner != username:
-                logging.info("Attempting to transfer ownership to original owner: %s", original_owner)
-                try:
-                    pimport.trasnfer_ownership_to_original_owner(original_owner_username=original_owner)
-                except Exception as e:
-                    logging.warning(
-                        "Ownership transfer to %s failed but continuing with import. Error: %s",
+                if creator_username == original_owner:
+                    logging.info(
+                        "Project already owned by %s, skipping ownership transfer.",
                         original_owner,
-                        str(e)
                     )
+                else:
+                    logging.info("Attempting to transfer ownership to original owner: %s", original_owner)
+                    try:
+                        pimport.transfer_ownership_to_original_owner(
+                            original_owner_username=original_owner,
+                            visibility=project_metadata.get("visibility"),
+                        )
+                    except Exception as e:
+                        logging.warning(
+                            "Ownership transfer to %s failed but continuing with import. Error: %s",
+                            original_owner,
+                            str(e)
+                        )
         
         print("\033[32m✔ Import of Project {} Successful \033[0m".format(project_name))
         print(
@@ -429,6 +454,7 @@ def project_import_cmd(project_name, verify, verbose):
             export_apiv1_key = config[API_V1_KEY]
             output_dir = config[OUTPUT_DIR_KEY]
             ca_path = config[CA_PATH_KEY]
+            export_skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
             export_output_dir = get_absolute_path(output_dir)
             export_ca_path = get_absolute_path(ca_path)
@@ -449,6 +475,7 @@ def project_import_cmd(project_name, verify, verbose):
                     ca_path=export_ca_path,
                     project_slug=project_name,
                     owner_type="",
+                    skip_tls_verification=export_skip_tls_verification,
                 )
                 (
                     export_creator_username,
@@ -471,6 +498,7 @@ def project_import_cmd(project_name, verify, verbose):
                     apiv1_key=export_apiv1_key,
                     ca_path=export_ca_path,
                     project_slug=export_project_slug,
+                    skip_tls_verification=export_skip_tls_verification,
                 )
                 for v in validators:
                     validation_response = v.validate()
@@ -497,6 +525,7 @@ def project_import_cmd(project_name, verify, verbose):
                     ca_path=export_ca_path,
                     project_slug=export_project_slug,
                     owner_type=export_owner_type,
+                    skip_tls_verification=export_skip_tls_verification,
                 )
                 (
                     exported_proj_data,
@@ -695,6 +724,7 @@ def project_verify_cmd(project_name, verbose):
     export_apiv1_key = config[API_V1_KEY]
     output_dir = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
+    export_skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
     export_output_dir = get_absolute_path(output_dir)
     export_ca_path = get_absolute_path(ca_path)
@@ -722,6 +752,7 @@ def project_verify_cmd(project_name, verbose):
             ca_path=export_ca_path,
             project_slug=project_name,
             owner_type="",
+            skip_tls_verification=export_skip_tls_verification,
         )
         (
             export_creator_username,
@@ -744,6 +775,7 @@ def project_verify_cmd(project_name, verbose):
             apiv1_key=export_apiv1_key,
             ca_path=export_ca_path,
             project_slug=export_project_slug,
+            skip_tls_verification=export_skip_tls_verification,
         )
         for v in validators:
             validation_response = v.validate()
@@ -770,6 +802,7 @@ def project_verify_cmd(project_name, verbose):
             ca_path=export_ca_path,
             project_slug=export_project_slug,
             owner_type=export_owner_type,
+            skip_tls_verification=export_skip_tls_verification,
         )
         (
             exported_proj_data,
@@ -792,6 +825,7 @@ def project_verify_cmd(project_name, verbose):
         import_apiv1_key = import_config[API_V1_KEY]
         local_directory = import_config[OUTPUT_DIR_KEY]
         ca_path = import_config[CA_PATH_KEY]
+        import_skip_tls_verification = import_config[constants.SKIP_TLS_VERIFICATION_KEY]
         import_local_directory = get_absolute_path(local_directory)
         import_ca_path = get_absolute_path(ca_path)
         p = ProjectImporter(
@@ -802,6 +836,7 @@ def project_verify_cmd(project_name, verbose):
             top_level_dir=import_local_directory,
             ca_path=import_ca_path,
             project_slug=project_name,
+            skip_tls_verification=import_skip_tls_verification,
         )
         logging.info("Started Verifying imported project: %s", project_name)
         try:
@@ -812,6 +847,7 @@ def project_verify_cmd(project_name, verbose):
                 top_level_directory=import_local_directory,
                 apiv1_key=import_apiv1_key,
                 ca_path=import_ca_path,
+                skip_tls_verification=import_skip_tls_verification,
             )
             logging.info("Begin validating for import.")
             for v in validators:
@@ -832,16 +868,17 @@ def project_verify_cmd(project_name, verbose):
                 "Finished validating import verification validations for project %s.",
                 project_name,
             )
-            project_id = p.check_project_exist(project_name)
-
             project_filepath = get_project_metadata_file_path(
                 top_level_dir=local_directory, project_name=project_name
             )
             project_metadata = read_json_file(project_filepath)
 
+            original_owner = project_metadata.get("original_owner_username")
+            project_id = p.check_project_exist(project_name, owner_username=original_owner)
+
             if "team_name" in project_metadata:
                 import_username = project_metadata["team_name"]
-            import_creator_username, import_project_slug = p.get_creator_username()
+            import_creator_username, import_project_slug = p.get_creator_username(owner_username=original_owner)
             pimport = ProjectImporter(
                 host=import_url,
                 username=import_username,
@@ -850,6 +887,7 @@ def project_verify_cmd(project_name, verbose):
                 top_level_dir=import_local_directory,
                 ca_path=import_ca_path,
                 project_slug=import_project_slug,
+                skip_tls_verification=import_skip_tls_verification,
             )
 
             (
@@ -1048,6 +1086,7 @@ def populate_engine_runtimes_mapping():
     apiv1_key = config[API_V1_KEY]
     local_directory = config[OUTPUT_DIR_KEY]
     ca_path = config[CA_PATH_KEY]
+    skip_tls_verification = config[constants.SKIP_TLS_VERIFICATION_KEY]
 
     local_directory = get_absolute_path(local_directory)
     ca_path = get_absolute_path(ca_path)
@@ -1063,6 +1102,7 @@ def populate_engine_runtimes_mapping():
         top_level_dir=local_directory,
         ca_path=ca_path,
         project_slug=project_name,
+        skip_tls_verification=skip_tls_verification,
     )
 
     page_token = ""

@@ -283,10 +283,37 @@ def get_absolute_path(path: str) -> str:
 
 
 def parse_runtimes_v2(runtimes):
-    legacy_runtime_image_map = _get_runtimes_v2(
-        runtimes, editor="Workbench", edition="Standard"
+    fallback_chain = [
+        ("Workbench", "Standard"),
+        ("PBJ Workbench", "Standard"),
+    ]
+
+    for editor, edition in fallback_chain:
+        legacy_runtime_image_map = _get_runtimes_v2(
+            runtimes, editor=editor, edition=edition
+        )
+        if "python3" in legacy_runtime_image_map:
+            if edition:
+                logging.info(
+                    "Using '%s' edition runtimes for editor '%s'.", edition, editor
+                )
+            else:
+                logging.warning(
+                    "No Standard edition Python runtime found for editor '%s'. "
+                    "Falling back to any available edition.",
+                    editor,
+                )
+            return legacy_runtime_image_map
+        logging.warning(
+            "No Python runtime found for editor '%s'%s.",
+            editor,
+            " edition '%s'" % edition if edition else " in any edition",
+        )
+
+    raise RuntimeError(
+        "No Python runtime found for editors 'Workbench' or 'PBJ Workbench' "
+        "in any edition. Cannot populate engine to runtimes mapping."
     )
-    return legacy_runtime_image_map
 
 
 def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
@@ -296,11 +323,13 @@ def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
     logging.info(
         "Populating Engine to Runtimes Mapping for editor: %s, edition: %s",
         editor,
-        edition,
+        edition if edition else "any",
     )
 
     for image_details in runtimes:
-        if image_details["editor"] == editor and image_details["edition"] == edition:
+        if image_details["editor"] == editor and (
+            edition is None or image_details["edition"] == edition
+        ):
             if "Python" in image_details["kernel"]:
                 if "python3" not in legacy_runtime_image_map:
                     legacy_runtime_kernel_map["python3"] = image_details["kernel"]
@@ -345,7 +374,8 @@ def _get_runtimes_v2(runtimes, editor="Workbench", edition="Standard"):
                         ]
 
     # Assigning Default runtime to Python3
-    legacy_runtime_image_map["default"] = legacy_runtime_image_map["python3"]
+    if "python3" in legacy_runtime_image_map:
+        legacy_runtime_image_map["default"] = legacy_runtime_image_map["python3"]
 
     return legacy_runtime_image_map
 
