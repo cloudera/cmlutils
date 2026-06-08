@@ -878,7 +878,18 @@ def project_verify_cmd(project_name, verbose):
 
             if "team_name" in project_metadata:
                 import_username = project_metadata["team_name"]
-            import_creator_username, import_project_slug = p.get_creator_username(owner_username=original_owner)
+            # original_owner may not exist on the destination (e.g. ownership transfer was
+            # skipped because the user is absent). Fall back to no-filter to find the project
+            # under whoever currently owns it (typically the importing user).
+            import_result = p.get_creator_username(owner_username=original_owner)
+            if import_result is None:
+                import_result = p.get_creator_username(owner_username=None)
+            if import_result is None:
+                logging.error(
+                    "Cannot find project %s on destination workbench.", project_name
+                )
+                raise RuntimeError("Project not found on destination")
+            import_creator_username, import_project_slug = import_result
             pimport = ProjectImporter(
                 host=import_url,
                 username=import_username,
@@ -888,6 +899,7 @@ def project_verify_cmd(project_name, verbose):
                 ca_path=import_ca_path,
                 project_slug=import_project_slug,
                 skip_tls_verification=import_skip_tls_verification,
+                project_owner_username=import_creator_username,
             )
 
             (
